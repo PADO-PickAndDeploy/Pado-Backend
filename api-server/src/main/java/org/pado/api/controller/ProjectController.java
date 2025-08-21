@@ -22,6 +22,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 
@@ -169,4 +170,51 @@ public class ProjectController {
         return ResponseEntity.ok(projectService.getProjectDetail(id, userDetails));
     }
 
+    @Operation(summary = "프로젝트 삭제", description = "프로젝트를 삭제합니다.")
+    @ApiResponses({
+        @ApiResponse(
+            responseCode = "200",
+            description = "프로젝트 삭제 성공",
+            content = @Content(
+                mediaType = "application/json",
+                schema = @Schema(implementation = DefaultResponse.class)
+            )
+        ),
+        @ApiResponse(
+            responseCode = "400",
+            description = "잘못된 요청",
+            content = @Content(
+                mediaType = "application/json",
+                schema = @Schema(implementation = DefaultResponse.class)
+            )
+        ),
+        @ApiResponse(
+            responseCode = "401",
+            description = "인증 실패",
+            content = @Content(
+                mediaType = "application/json",
+                schema = @Schema(implementation = DefaultResponse.class)
+            )
+        ),
+        @ApiResponse(
+            responseCode = "404",
+            description = "프로젝트를 찾을 수 없습니다.",
+            content = @Content(
+                mediaType = "application/json",
+                schema = @Schema(implementation = DefaultResponse.class)
+            )
+        ),
+        @ApiResponse(
+            responseCode = "500",
+            description = "서버 내부 오류",
+            content = @Content(
+                mediaType = "application/json",
+                schema = @Schema(implementation = DefaultResponse.class)
+            )
+        )
+    })
+    @DeleteMapping("/projects/{id}")
+    public ResponseEntity<DefaultResponse> deleteProject(@PathVariable Long id, @AuthenticationPrincipal CustomUserDetails userDetails) {
+        return ResponseEntity.ok(projectService.deleteProject(id, userDetails));
+    }
 }

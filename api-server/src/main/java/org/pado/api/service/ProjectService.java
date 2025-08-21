@@ -7,6 +7,7 @@ import org.pado.api.core.exception.CustomException;
 import org.pado.api.core.exception.ErrorCode;
 import org.pado.api.core.security.userdetails.CustomUserDetails;
 import org.pado.api.dto.request.ProjectCreateRequest;
+import org.pado.api.dto.response.DefaultResponse;
 import org.pado.api.dto.response.ProjectCreateResponse;
 import org.pado.api.dto.response.ProjectDetailResponse;
 import org.pado.api.dto.response.ProjectListResponse;
@@ -163,5 +164,28 @@ public class ProjectService {
                 project.getUpdatedAt(),
                 components
         );
+    }
+
+    @Transactional
+    public DefaultResponse deleteProject(Long id, CustomUserDetails userDetails) {
+        User user = userDetails.getUser();
+        Project project;
+
+        try {
+            project = projectRepository.findByIdAndUserId(id, user.getId())
+                    .orElseThrow(() -> new CustomException(ErrorCode.PROJECT_NOT_FOUND, "프로젝트를 찾을 수 없습니다."));
+            // 추후 개발 예정 부분 (프로젝트 상태를 가져오는 메소드를 통해 현재 상태를 확인 및 특정 상태일 때 삭제 가능 여부 판단)
+            // if (project.getStatus() != Status.DRAFT || project.getStatus() != Status.STOP) {
+            //     throw new CustomException(ErrorCode.PROJECT_DELETION_NOT_ALLOWED, "프로젝트 상태가 삭제를 허용하지 않습니다.");
+            // }
+            projectRepository.delete(project);
+        } catch (CustomException e) {
+            log.warn("Project not found for user: {}, project ID: {}", user.getId(), id);
+            throw e; // Re-throwing the custom exception
+        } catch (Exception e) {
+            log.error("Error occurred while deleting project for user: {}", user.getId(), e);
+            throw new CustomException(ErrorCode.INTERNAL_SERVER_ERROR, "프로젝트 삭제 중 오류가 발생했습니다.");
+        }
+        return new DefaultResponse("프로젝트가 성공적으로 삭제되었습니다.");
     }
 }
