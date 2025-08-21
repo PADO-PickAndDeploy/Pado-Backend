@@ -1,9 +1,7 @@
 package org.pado.api.dto.response;
 
-import java.util.List;
-
-import org.pado.api.domain.component.ComponentSubType;
 import org.pado.api.domain.component.ComponentType;
+import org.pado.api.domain.component.ComponentSubType;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.AllArgsConstructor;
@@ -13,26 +11,24 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 @NoArgsConstructor
 @Getter
-public class ComponentListResponse {
-    private List<ComponentListInfo> components;
+public class ComponentCreateResponse {
+    @Schema(description = "부모 컴포넌트")
+    ComponentCreateInfo parentComponent;
+    
+    @Schema(description = "자식 컴포넌트")
+    ComponentCreateInfo childComponent;
 
-    @Getter
     @NoArgsConstructor
     @AllArgsConstructor
-    public static class ComponentListInfo {
+    @Getter
+    public static class ComponentCreateInfo {
         @Schema(description = "컴포넌트 ID", example = "1")
         private Long id;
 
-        @Schema(description = "컴포넌트 이름", example = "MyComponent")
-        private String name;
-
         @Schema(description = "컴포넌트 버전", example = "1")
-        private String description;
+        private Long version;
 
         @Schema(description = "컴포넌트 타입", example = "RESOURCE")
-        private String thumbnail;
-
-        @Schema(description = "컴포넌트 리소스 타입", example = "RESOURCE")
         private ComponentType type;
 
         @Schema(description = "컴포넌트 서브타입", example = "S3")

@@ -1,16 +1,24 @@
 package org.pado.api.controller;
 
 import org.pado.api.service.ComponentService;
+import org.pado.api.core.security.userdetails.CustomUserDetails;
+import org.pado.api.dto.request.ComponentCreateRequest;
+import org.pado.api.dto.response.ComponentCreateResponse;
 import org.pado.api.dto.response.ComponentListResponse;
 import org.pado.api.dto.response.DefaultResponse;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RestController;
 
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.Valid;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.RequiredArgsConstructor;
@@ -51,5 +59,53 @@ public class ComponentController {
     @GetMapping("/components")
     public ResponseEntity<ComponentListResponse> getComponentList() {
         return ResponseEntity.ok(componentService.getComponentList());
+    }
+
+    @Operation(summary = "컴포넌트 생성", description = "새로운 컴포넌트를 생성합니다.")
+    @ApiResponses({
+        @ApiResponse(
+            responseCode = "200",
+            description = "컴포넌트 생성 성공",
+            content = @Content(
+                mediaType = "application/json",
+                schema = @Schema(implementation = ComponentCreateResponse.class)
+            )
+        ),
+        @ApiResponse(
+            responseCode = "400",
+            description = "잘못된 요청",
+            content = @Content(
+                mediaType = "application/json",
+                schema = @Schema(implementation = DefaultResponse.class)
+            )
+        ),
+        @ApiResponse(
+            responseCode = "401",
+            description = "인증 실패",
+            content = @Content(
+                mediaType = "application/json",
+                schema = @Schema(implementation = DefaultResponse.class)
+            )
+        ),
+        @ApiResponse(
+            responseCode = "404",
+            description = "프로젝트 또는 컴포넌트가 존재하지 않음",
+            content = @Content(
+                mediaType = "application/json",
+                schema = @Schema(implementation = DefaultResponse.class)
+            )
+        ),
+        @ApiResponse(
+            responseCode = "500",
+            description = "서버 내부 오류",
+            content = @Content(
+                mediaType = "application/json",
+                schema = @Schema(implementation = DefaultResponse.class)
+            )
+        )
+    })
+    @PostMapping("/projects/{projectId}/components")
+    public ResponseEntity<ComponentCreateResponse> createComponent(@PathVariable Long projectId, @Valid @RequestBody ComponentCreateRequest request, @AuthenticationPrincipal CustomUserDetails userDetails) {
+        return ResponseEntity.ok(componentService.createComponent(projectId, request, userDetails));
     }
 }
