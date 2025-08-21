@@ -13,7 +13,7 @@ import lombok.NoArgsConstructor;
 @Getter
 @AllArgsConstructor
 @NoArgsConstructor
-public class ProjectResponse {
+public class ProjectCreateResponse {
     @Schema(description = "프로젝트 ID", example = "1")
     private Long id;
     
