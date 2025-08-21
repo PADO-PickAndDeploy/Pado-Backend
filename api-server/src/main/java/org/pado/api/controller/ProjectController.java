@@ -13,12 +13,16 @@ import lombok.RequiredArgsConstructor;
 import org.pado.api.core.security.userdetails.CustomUserDetails;
 import org.pado.api.dto.request.ProjectCreateRequest;
 import org.pado.api.dto.response.DefaultResponse;
-import org.pado.api.dto.response.ProjectResponse;
+import org.pado.api.dto.response.ProjectCreateResponse;
+import org.pado.api.dto.response.ProjectListResponse;
 import org.pado.api.service.ProjectService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+
 
 
 @RestController
@@ -34,7 +38,7 @@ public class ProjectController {
             description = "프로젝트 생성 성공",
             content = @Content(
                 mediaType = "application/json",
-                schema = @Schema(implementation = ProjectResponse.class)
+                schema = @Schema(implementation = ProjectCreateResponse.class)
             )
         ),
         @ApiResponse(
@@ -60,10 +64,59 @@ public class ProjectController {
                 mediaType = "application/json",
                 schema = @Schema(implementation = DefaultResponse.class)
             )
+        ),
+        @ApiResponse(
+            responseCode = "500",
+            description = "서버 내부 오류",
+            content = @Content(
+                mediaType = "application/json",
+                schema = @Schema(implementation = DefaultResponse.class)
+            )
         )
     })
     @PostMapping("/projects")
-    public ResponseEntity<ProjectResponse> createProject(@RequestBody ProjectCreateRequest request, @AuthenticationPrincipal CustomUserDetails userDetails) {
+    public ResponseEntity<ProjectCreateResponse> createProject(@RequestBody ProjectCreateRequest request, @AuthenticationPrincipal CustomUserDetails userDetails) {
         return ResponseEntity.ok(projectService.createProject(request, userDetails));
     }
+
+    @Operation(summary = "프로젝트 목록 조회", description = "사용자의 프로젝트 목록을 조회합니다")
+    @ApiResponses({
+        @ApiResponse(
+            responseCode = "200",
+            description = "프로젝트 목록 조회 성공",
+            content = @Content(
+                mediaType = "application/json",
+                schema = @Schema(implementation = ProjectListResponse.class)
+            )
+        ),
+        @ApiResponse(
+            responseCode = "400",
+            description = "잘못된 요청",
+            content = @Content(
+                mediaType = "application/json",
+                schema = @Schema(implementation = DefaultResponse.class)
+            )
+        ),
+        @ApiResponse(
+            responseCode = "401",
+            description = "인증 실패",
+            content = @Content(
+                mediaType = "application/json",
+                schema = @Schema(implementation = DefaultResponse.class)
+            )
+        ),
+        @ApiResponse(
+            responseCode = "500",
+            description = "서버 내부 오류",
+            content = @Content(
+                mediaType = "application/json",
+                schema = @Schema(implementation = DefaultResponse.class)
+            )
+        )
+    })
+    @GetMapping("/projects")
+    public ResponseEntity<ProjectListResponse> getProjects(@AuthenticationPrincipal CustomUserDetails userDetails) {
+        return ResponseEntity.ok(projectService.getProjects(userDetails));
+    }
+    
 }
