@@ -8,14 +8,15 @@ import org.pado.api.core.exception.ErrorCode;
 import org.pado.api.core.security.userdetails.CustomUserDetails;
 import org.pado.api.dto.request.ProjectCreateRequest;
 import org.pado.api.dto.response.ProjectCreateResponse;
+import org.pado.api.dto.response.ProjectDetailResponse;
 import org.pado.api.dto.response.ProjectListResponse;
 import org.pado.api.domain.project.Project;
 import org.pado.api.domain.project.ProjectRepository;
 import org.pado.api.domain.user.User;
 import org.springframework.stereotype.Service;
 import org.pado.api.domain.common.Status;
-
-
+import org.pado.api.domain.component.ComponentRepository;
+import org.pado.api.domain.connection.ConnectionRepository;
 import org.springframework.transaction.annotation.Transactional;
 
 import lombok.RequiredArgsConstructor;
@@ -26,6 +27,8 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 public class ProjectService {
     private final ProjectRepository projectRepository;
+    private final ComponentRepository componentRepository;
+    private final ConnectionRepository connectionRepository;
 
     @Transactional
     public ProjectCreateResponse createProject(ProjectCreateRequest request, CustomUserDetails userDetails) {
@@ -83,5 +86,82 @@ public class ProjectService {
                 ))
                 .collect(Collectors.toList());
         return new ProjectListResponse(projectInfos);
+    }
+
+    @Transactional(readOnly = true)
+    public ProjectDetailResponse getProjectDetail(Long id, CustomUserDetails userDetails) {
+        User user = userDetails.getUser();
+        Project project;
+        List<ProjectDetailResponse.ComponentInfo> components;
+
+        try {
+            project = projectRepository.findByIdAndUserId(id, user.getId())
+                    .orElseThrow(() -> new CustomException(ErrorCode.PROJECT_NOT_FOUND, "프로젝트를 찾을 수 없습니다."));
+        } catch (CustomException e) {
+            log.warn("Project not found for user: {}, project ID: {}", user.getId(), id);
+            throw e; // Re-throwing the custom exception
+        } catch (Exception e) {
+            log.error("Error occurred while fetching project detail for user: {}", user.getId(), e);
+            throw new CustomException(ErrorCode.INTERNAL_SERVER_ERROR, "프로젝트 상세 정보를 조회하는 중 오류가 발생했습니다.");
+        }
+
+        try {
+            components = componentRepository.findByProjectIdAndParent(project.getId(), null)
+                    .stream()
+                    .map(component -> new ProjectDetailResponse.ComponentInfo(
+                            component.getId(),
+                            component.getVersion(),
+                            component.getName(),
+                            component.getType(),
+                            component.getSubtype(),
+                            component.getThumbnail(),
+                            component.getDeployStartTime(),
+                            component.getDeployEndTime(),
+                            component.getChildren().stream()
+                                    .map(child -> new ProjectDetailResponse.ComponentInfo(
+                                            child.getId(),
+                                            child.getVersion(),
+                                            child.getName(),
+                                            child.getType(),
+                                            child.getSubtype(),
+                                            child.getThumbnail(),
+                                            child.getDeployStartTime(),
+                                            child.getDeployEndTime(),
+                                            null,
+                                            connectionRepository.findByFromComponent(child).stream()
+                                                    .map(conn -> new ProjectDetailResponse.ConnectionInfo(
+                                                            conn.getId(),
+                                                            conn.getFromComponent().getId(),
+                                                            conn.getToComponent().getId(),
+                                                            conn.getFromPort(),
+                                                            conn.getToPort()
+                                                    )).collect(Collectors.toList())
+                                    )).collect(Collectors.toList()),
+                            connectionRepository.findByFromComponent(component).stream()
+                                    .map(conn -> new ProjectDetailResponse.ConnectionInfo(
+                                            conn.getId(),
+                                            conn.getFromComponent().getId(),
+                                            conn.getToComponent().getId(),
+                                            conn.getFromPort(),
+                                            conn.getToPort()
+                                    )).collect(Collectors.toList())
+                    ))
+                    .collect(Collectors.toList());
+                
+        } catch (Exception e) {
+            log.error("Error occurred while fetching components for project: {}", project.getId(), e);
+            throw new CustomException(ErrorCode.INTERNAL_SERVER_ERROR, "프로젝트 컴포넌트를 조회하는 중 오류가 발생했습니다.");
+        }
+
+        return new ProjectDetailResponse(
+                project.getId(),
+                project.getName(),
+                project.getDescription(),
+                project.getThumbnail(),
+                Status.ACTIVE,
+                project.getCreatedAt(),
+                project.getUpdatedAt(),
+                components
+        );
     }
 }
