@@ -14,7 +14,7 @@ import lombok.Setter;
 @Table(
     name = "component_lists",
     uniqueConstraints = {
-        @UniqueConstraint(columnNames = {"type", "subtype"})
+        @UniqueConstraint(columnNames = {"resourceType", "serviceType"})
     }
 )
 @Getter
@@ -28,7 +28,9 @@ public class ComponentList {
 
     private String name;
     private String description;
-    private String thumbnail;
-    private ComponentType type;
-    private ComponentSubType subtype;
+    private String resourceThumbnail;
+    private String serviceThumbnail;
+    private ComponentSubType resourceType;
+    private ComponentSubType serviceType;
+
 }

@@ -39,9 +39,10 @@ public class ComponentService {
                             component.getId(),
                             component.getName(),
                             component.getDescription(),
-                            component.getThumbnail(),
-                            component.getType(),
-                            component.getSubtype())
+                            component.getResourceThumbnail(),
+                            component.getServiceThumbnail(),
+                            component.getResourceType(),
+                            component.getServiceType())
             ).collect(Collectors.toList());
         } catch (Exception e) {
             log.error("Error occurred while fetching component list", e);
@@ -57,27 +58,39 @@ public class ComponentService {
                 .orElseThrow(() -> new CustomException(ErrorCode.PROJECT_NOT_FOUND, "프로젝트를 찾을 수 없습니다."));
 
         // Try Catch 를 통한 에러 처리 필요
-        ComponentList resourceComponent = componentListRepository.findByTypeAndSubtype(ComponentType.RESOURCE, ComponentSubType.valueOf(request.getResourceType()))
-                .orElseThrow(() -> new CustomException(ErrorCode.COMPONENT_NOT_FOUND, "리소스 컴포넌트를 찾을 수 없습니다."));
-        ComponentList serviceComponent = componentListRepository.findByTypeAndSubtype(ComponentType.SERVICE, ComponentSubType.valueOf(request.getServiceType()))
-                .orElseThrow(() -> new CustomException(ErrorCode.COMPONENT_NOT_FOUND, "서비스 컴포넌트를 찾을 수 없습니다."));
+        ComponentList selectedComponent;
+        try {
+            selectedComponent = componentListRepository.findByResourceTypeAndServiceType(
+                    ComponentSubType.valueOf(request.getResourceType()),
+                    ComponentSubType.valueOf(request.getServiceType()))
+                    .orElseThrow(() -> new CustomException(ErrorCode.COMPONENT_NOT_FOUND, "리소스 컴포넌트를 찾을 수 없습니다."));
+        } catch (IllegalArgumentException e) {
+            log.error("Invalid ComponentSubType: resourceType={}, serviceType={}", request.getResourceType(), request.getServiceType());
+            throw new CustomException(ErrorCode.COMPONENT_NOT_FOUND, "유효하지 않은 컴포넌트 유형입니다.");
+        } catch (Exception e) {
+            log.error("Error occurred while fetching component", e);
+            throw new CustomException(ErrorCode.INTERNAL_SERVER_ERROR, "컴포넌트 조회 중 오류가 발생했습니다.");
+        }
 
         Component parentComponent;
         Component component;
 
-        // 컴포넌트 종류 별로 에러 처리 필요. (리소스 타입에 리소스 SubType 사용 불가능, -> Enum 나눌 필요도 있을 듯)
-
         if (request.getParentId() != null) {
             parentComponent = componentRepository.findById(request.getParentId())
                     .orElseThrow(() -> new CustomException(ErrorCode.COMPONENT_NOT_FOUND, "부모 컴포넌트를 찾을 수 없습니다."));
+            if (parentComponent.getSubtype() != selectedComponent.getResourceType()) {
+                log.error("Parent component subtype mismatch: parent={}, child={}", parentComponent.getSubtype(), selectedComponent.getResourceType());
+                throw new CustomException(ErrorCode.COMPONENT_NOT_FOUND, "부모 컴포넌트의 유형이 일치하지 않습니다.");
+            }
         } else {
             try {
                 parentComponent = Component.builder()
                         .project(project)
-                        .name(resourceComponent.getName())
-                        .type(resourceComponent.getType())
-                        .subtype(resourceComponent.getSubtype())
-                        .thumbnail(resourceComponent.getThumbnail())
+                        .name(selectedComponent.getResourceType().toString())
+                        .type(ComponentType.RESOURCE)
+                        .subtype(selectedComponent.getResourceType())
+                        .thumbnail(selectedComponent.getResourceThumbnail())
+                        .version(1L)
                         .deployStartTime(null)
                         .deployEndTime(null)
                         .build();
@@ -91,10 +104,11 @@ public class ComponentService {
             component = Component.builder()
                     .project(project)
                     .parent(parentComponent)
-                    .name(serviceComponent.getName())
-                    .type(serviceComponent.getType())
-                    .subtype(serviceComponent.getSubtype())
-                    .thumbnail(serviceComponent.getThumbnail())
+                    .name(selectedComponent.getServiceType().toString())
+                    .type(ComponentType.SERVICE)
+                    .subtype(selectedComponent.getServiceType())
+                    .thumbnail(selectedComponent.getServiceThumbnail())
+                    .version(1L)
                     .deployStartTime(null)
                     .deployEndTime(null)
                     .build();

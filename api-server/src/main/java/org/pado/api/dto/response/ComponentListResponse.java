@@ -29,13 +29,16 @@ public class ComponentListResponse {
         @Schema(description = "컴포넌트 버전", example = "1")
         private String description;
 
-        @Schema(description = "컴포넌트 타입", example = "RESOURCE")
-        private String thumbnail;
+        @Schema(description = "컴포넌트 썸네일 URL", example = "https://example.com/thumbnail.jpg")
+        private String resourceThumbnail;
 
-        @Schema(description = "컴포넌트 리소스 타입", example = "RESOURCE")
-        private ComponentType type;
+        @Schema(description = "컴포넌트 서비스 썸네일 URL", example = "https://example.com/service_thumbnail.jpg")
+        private String serviceThumbnail;
 
-        @Schema(description = "컴포넌트 서브타입", example = "S3")
-        private ComponentSubType subtype;
+        @Schema(description = "컴포넌트 리소스 타입", example = "S3")
+        private ComponentSubType resourceType;
+
+        @Schema(description = "컴포넌트 서비스 타입", example = "REACT")
+        private ComponentSubType serviceType;
     }
 }
