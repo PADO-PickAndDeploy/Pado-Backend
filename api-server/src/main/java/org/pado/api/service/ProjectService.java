@@ -47,6 +47,9 @@ public class ProjectService {
                     "프로젝트 이름 '" + project.getName() + "'은 이미 존재합니다.");
             }
             projectRepository.save(project);
+        } catch (CustomException e) {
+            log.warn("CustomException occurred: {}", e.getMessage());
+            throw e;
         } catch (Exception e) {
             log.error("Error occurred while creating project for user: {}", user.getId(), e);
             throw new CustomException(ErrorCode.INTERNAL_SERVER_ERROR, "프로젝트 생성 중 오류가 발생했습니다.");
