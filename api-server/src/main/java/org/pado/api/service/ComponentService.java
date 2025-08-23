@@ -7,7 +7,6 @@ import org.pado.api.core.exception.CustomException;
 import org.pado.api.core.exception.ErrorCode;
 import org.pado.api.core.security.userdetails.CustomUserDetails;
 import org.pado.api.domain.component.Component;
-import org.pado.api.domain.component.ComponentDefaultSetting;
 import org.pado.api.domain.component.ComponentDefaultSettingRepository;
 import org.pado.api.domain.component.ComponentList;
 import org.pado.api.domain.component.ComponentListRepository;
@@ -20,8 +19,11 @@ import org.pado.api.domain.project.Project;
 import org.pado.api.domain.project.ProjectRepository;
 import org.pado.api.domain.user.User;
 import org.pado.api.dto.request.ComponentCreateRequest;
+import org.pado.api.dto.request.ComponentSettingRequest;
 import org.pado.api.dto.response.ComponentCreateResponse;
+import org.pado.api.dto.response.ComponentDeleteResponse;
 import org.pado.api.dto.response.ComponentListResponse;
+import org.pado.api.dto.response.ComponentSettingResponse;
 import org.springframework.stereotype.Service;
 
 import jakarta.transaction.Transactional;
@@ -61,6 +63,7 @@ public class ComponentService {
     
     @Transactional
     public ComponentCreateResponse createComponent(Long projectId, ComponentCreateRequest request, CustomUserDetails userDetails) {
+        // 프로젝트 및 컴포넌트가 실행 중인지 여부 확인 후 에러 처리 필요 (상태가 DRAFT, STOP이 아닌 경우 삭제 불가)
         User user = userDetails.getUser();
         Project project = projectRepository.findByIdAndUserId(projectId, user.getId())
                 .orElseThrow(() -> new CustomException(ErrorCode.PROJECT_NOT_FOUND, "프로젝트를 찾을 수 없습니다."));
@@ -173,5 +176,51 @@ public class ComponentService {
                         component.getSubtype()
                 )
         );
+    }
+
+    public ComponentSettingResponse setComponentSetting(Long projectId, Long componentId, ComponentSettingRequest request, CustomUserDetails userDetails) {
+        User user = userDetails.getUser();
+        // 프로젝트 및 컴포넌트가 실행 중인지 여부 확인 후 에러 처리 필요 (상태가 DRAFT, STOP이 아닌 경우 수정 불가)
+        try {
+            projectRepository.findByIdAndUserId(projectId, user.getId())
+                            .orElseThrow(() -> new CustomException(ErrorCode.PROJECT_NOT_FOUND, "프로젝트를 찾을 수 없습니다."));
+            Component component = componentRepository.findByIdAndProjectUserId(componentId, user.getId())
+                    .orElseThrow(() -> new CustomException(ErrorCode.COMPONENT_NOT_FOUND, "컴포넌트를 찾을 수 없습니다."));
+            ComponentSetting componentSetting = componentSettingRepository.findFirstByComponentIdOrderByVersionDesc(component.getId())
+                    .orElseThrow(() -> new CustomException(ErrorCode.COMPONENT_NOT_FOUND, "컴포넌트 설정을 찾을 수 없습니다."));
+            componentSettingRepository.save(componentSetting);
+        } catch (Exception e) {
+            log.error("Error occurred while updating component setting", e);
+            throw new CustomException(ErrorCode.INTERNAL_SERVER_ERROR, "컴포넌트 설정 변경 중 오류가 발생했습니다.");
+        }
+        return new ComponentSettingResponse("컴포넌트 설정이 성공적으로 변경되었습니다.");
+    }
+
+    @Transactional
+    public ComponentDeleteResponse deleteComponent(Long projectId, Long componentId, CustomUserDetails userDetails) {
+        User user = userDetails.getUser();
+        // 프로젝트 및 컴포넌트가 실행 중인지 여부 확인 후 에러 처리 필요 (상태가 DRAFT, STOP이 아닌 경우 삭제 불가)
+        try {
+            projectRepository.findByIdAndUserId(projectId, user.getId())
+                    .orElseThrow(() -> new CustomException(ErrorCode.PROJECT_NOT_FOUND, "프로젝트를 찾을 수 없습니다."));
+            componentRepository.findByIdAndProjectUserId(componentId, user.getId())
+                    .orElseThrow(() -> new CustomException(ErrorCode.COMPONENT_NOT_FOUND, "컴포넌트를 찾을 수 없습니다."));
+            List<ComponentSetting> componentSettings = componentSettingRepository.findByComponentId(componentId);
+            componentSettings.forEach(componentSetting -> {
+                componentSettingRepository.delete(componentSetting);
+            });
+        } catch (Exception e) {
+            log.error("Error occurred while deleting component settings", e);
+            throw new CustomException(ErrorCode.INTERNAL_SERVER_ERROR, "컴포넌트 설정 삭제 중 오류가 발생했습니다.");
+        }
+        try {
+            Component component = componentRepository.findByIdAndProjectUserId(componentId, user.getId())
+                    .orElseThrow(() -> new CustomException(ErrorCode.COMPONENT_NOT_FOUND, "컴포넌트를 찾을 수 없습니다."));
+            componentRepository.delete(component);
+        } catch (Exception e) {
+            log.error("Error occurred while deleting component", e);
+            throw new CustomException(ErrorCode.INTERNAL_SERVER_ERROR, "컴포넌트 삭제 중 오류가 발생했습니다.");
+        }
+        return new ComponentDeleteResponse("컴포넌트가 성공적으로 삭제되었습니다.");
     }
 }

@@ -19,12 +19,16 @@ import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.OneToMany;
 import jakarta.persistence.Table;
+import jakarta.persistence.UniqueConstraint;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 
 @Entity
 @Table(
-    name = "components"
+    name = "components",
+    uniqueConstraints = {
+        @UniqueConstraint(columnNames = {"id", "pid"})
+    }
 )
 @lombok.Getter
 @lombok.Setter
