@@ -11,6 +11,7 @@ import org.pado.api.core.vault.service.CredentialVaultService;
 import org.pado.api.domain.credential.Credential;
 import org.pado.api.domain.credential.CredentialRepository;
 import org.pado.api.dto.request.CredentialRegisterRequest;
+import org.pado.api.dto.response.CredentialDeleteResponse;
 import org.pado.api.dto.response.CredentialDetailResponse;
 import org.pado.api.dto.response.CredentialResponse;
 
@@ -121,6 +122,19 @@ public class CredentialService {
                 credential.getUpdatedAt().format(formatter)
         );
     }
+
+    @Transactional
+    public CredentialDeleteResponse deleteCredential(CustomUserDetails authenticatedUser, Long credentialId){
+        log.info("Deleting credential: {} for user: {}", credentialId, authenticatedUser.getId());
+
+        Credential credential = credentialRepository.findById(credentialId)
+            .orElseThrow(() -> new CustomException(ErrorCode.CREDENTIAL_NOT_FOUND));
+
+        if (!credential.getUser().getId().equals(authenticatedUser.getUser().getId())) {
+            throw new CustomException(ErrorCode.FORBIDDEN);
+        }
+    } 
+
     
 
     /**
