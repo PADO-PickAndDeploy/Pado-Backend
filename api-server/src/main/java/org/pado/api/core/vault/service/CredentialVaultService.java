@@ -120,7 +120,7 @@ public class CredentialVaultService {
             throw new CustomException(ErrorCode.INVALID_REQUEST, "크리덴셜 정보가 유효하지 않습니다.");
         }
         
-        if (credential.getCredentialType() == null || credential.getCredentialType().trim().isEmpty()) {
+        if (credential.getType() == null || credential.getType().trim().isEmpty()) {
             throw new CustomException(ErrorCode.INVALID_REQUEST, "크리덴셜 타입이 유효하지 않습니다.");
         }
     }
