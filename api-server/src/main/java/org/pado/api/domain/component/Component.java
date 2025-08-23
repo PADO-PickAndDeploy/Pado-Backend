@@ -51,7 +51,7 @@ public class Component extends BaseTimeEntity {
     private String name;
     private ComponentType type;
     private ComponentSubType subtype;
-    private String thumnail;
-    private LocalDateTime deploy_start_time;
-    private LocalDateTime deploy_end_time;
+    private String thumbnail;
+    private LocalDateTime deployStartTime;
+    private LocalDateTime deployEndTime;
 }
