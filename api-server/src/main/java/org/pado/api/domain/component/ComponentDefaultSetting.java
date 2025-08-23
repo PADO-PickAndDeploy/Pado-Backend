@@ -18,5 +18,6 @@ public class ComponentDefaultSetting {
     private String id;
 
     private ComponentSubType type;
+    private Long defaultPort;
     private String value;
 }
