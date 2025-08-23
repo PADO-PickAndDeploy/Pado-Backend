@@ -1,0 +1,23 @@
+package org.pado.api.domain.component;
+
+import org.springframework.data.mongodb.core.mapping.Document;
+
+import jakarta.persistence.Id;
+import lombok.AllArgsConstructor;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
+
+@Document(collection = "component_default_settings")
+@AllArgsConstructor
+@NoArgsConstructor
+@Getter
+@Setter
+public class ComponentDefaultSetting {
+    @Id
+    private String id;
+
+    private ComponentSubType type;
+    private Long defaultPort;
+    private String value;
+}

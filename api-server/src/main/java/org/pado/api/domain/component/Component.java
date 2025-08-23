@@ -19,12 +19,23 @@ import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.OneToMany;
 import jakarta.persistence.Table;
+import jakarta.persistence.UniqueConstraint;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
 
 @Entity
-@Table(name = "components")
+@Table(
+    name = "components",
+    uniqueConstraints = {
+        @UniqueConstraint(columnNames = {"id", "pid"}),
+        @UniqueConstraint(columnNames = {"name", "pid"})
+    }
+)
 @lombok.Getter
 @lombok.Setter
 @lombok.NoArgsConstructor
+@AllArgsConstructor
+@Builder
 public class Component extends BaseTimeEntity {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
