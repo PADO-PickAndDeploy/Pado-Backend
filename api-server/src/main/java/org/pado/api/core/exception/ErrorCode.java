@@ -31,6 +31,7 @@ public enum ErrorCode {
     // ===== 크리덴셜 관련 에러 =====
     CREDENTIAL_NOT_FOUND("CR001", "크리덴셜을 찾을 수 없습니다.", HttpStatus.NOT_FOUND),
     CREDENTIAL_ACCESS_DENIED("CR002", "크리덴셜에 접근할 권한이 없습니다.", HttpStatus.FORBIDDEN),
+    CREDENTIAL_NAME_DUPLICATE("CR003", "이미 존재하는 크리덴셜 이름입니다.", HttpStatus.CONFLICT),
 
     // ===== 프로젝트 관련 에러 =====
     PROJECT_NOT_FOUND("P001", "프로젝트를 찾을 수 없습니다.", HttpStatus.NOT_FOUND),

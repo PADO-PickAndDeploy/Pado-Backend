@@ -29,7 +29,7 @@ public class CredentialVaultService {
     public void storeCredentialData(User user, Credential credential, String credentialData) {
         validateInputs(user, credential, credentialData);
         
-        String path = buildVaultPath(user.getId(), credential.getCredentialType(), credential.getId());
+        String path = buildVaultPath(user.getId(), credential.getType(), credential.getId());
         
         Map<String, Object> vaultData = Map.of(
             "credentialData", credentialData,
@@ -53,7 +53,7 @@ public class CredentialVaultService {
     public String getCredentialData(User user, Credential credential) {
         validateInputs(user, credential);
         
-        String path = buildVaultPath(user.getId(), credential.getCredentialType(), credential.getId());
+        String path = buildVaultPath(user.getId(), credential.getType(), credential.getId());
         
         try {
             Map<String, Object> data = vaultService.readSecret(path);
@@ -83,7 +83,7 @@ public class CredentialVaultService {
     public void deleteCredentialData(User user, Credential credential) {
         validateInputs(user, credential);
         
-        String path = buildVaultPath(user.getId(), credential.getCredentialType(), credential.getId());
+        String path = buildVaultPath(user.getId(), credential.getType(), credential.getId());
         
         try {
             vaultService.deleteSecret(path);
@@ -120,7 +120,7 @@ public class CredentialVaultService {
             throw new CustomException(ErrorCode.INVALID_REQUEST, "크리덴셜 정보가 유효하지 않습니다.");
         }
         
-        if (credential.getCredentialType() == null || credential.getCredentialType().trim().isEmpty()) {
+        if (credential.getType() == null || credential.getType().trim().isEmpty()) {
             throw new CustomException(ErrorCode.INVALID_REQUEST, "크리덴셜 타입이 유효하지 않습니다.");
         }
     }
