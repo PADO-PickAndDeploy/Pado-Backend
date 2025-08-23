@@ -10,7 +10,9 @@ import org.pado.api.core.security.userdetails.CustomUserDetails;
 import org.pado.api.core.vault.service.CredentialVaultService;
 import org.pado.api.domain.credential.Credential;
 import org.pado.api.domain.credential.CredentialRepository;
+import org.pado.api.domain.user.User;
 import org.pado.api.dto.request.CredentialRegisterRequest;
+import org.pado.api.dto.response.CredentialDeleteResponse;
 import org.pado.api.dto.response.CredentialDetailResponse;
 import org.pado.api.dto.response.CredentialResponse;
 
@@ -121,6 +123,51 @@ public class CredentialService {
                 credential.getUpdatedAt().format(formatter)
         );
     }
+
+    @Transactional
+    public CredentialDeleteResponse deleteCredential(CustomUserDetails authenticatedUser, Long credentialId){
+        log.info("Deleting credential: {} for user: {}", credentialId, authenticatedUser.getId());
+
+        User user = authenticatedUser.getUser();
+        Credential credential;
+
+        try {
+            credential = credentialRepository.findByIdAndUserId(credentialId, user.getId())
+                .orElseThrow(() -> new CustomException(ErrorCode.CREDENTIAL_NOT_FOUND));
+
+            // 추후 개발 예정 부분 (크리덴셜을 사용하는 프로젝트 상태 확인)
+            // List<Project> projectsUsingCredential = findProjectsUsingCredential(credentialId);
+            // for (Project project : projectsUsingCredential) {
+            //     if (project.getStatus() != Status.DRAFT && project.getStatus() != Status.STOP) {
+            //         throw new CustomException(ErrorCode.CREDENTIAL_DELETION_NOT_ALLOWED, 
+            //             "실행 중이거나 배포된 프로젝트에서 사용 중인 크리덴셜입니다.");
+            //     }
+            // }
+
+            // Vault에서 크리덴셜 삭제
+            try {
+                credentialVaultService.deleteCredentialData(user, credential);
+                log.info("Successfully deleted credential data from Vault for credential: {}", credentialId);
+            } catch (Exception e) {
+                log.error("Failed to delete credential data from Vault for credential: {}", credentialId, e);
+                throw new CustomException(ErrorCode.VAULT_OPERATION_FAILED,
+                    "Vault에서 크리덴셜 데이터 삭제에 실패했습니다.", e);
+            }
+
+            // DB에서 크리덴셜 삭제
+            credentialRepository.delete(credential);
+
+        } catch (CustomException e) {
+            log.warn("Credential deletion failed for user: {}, credential ID: {}", user.getId(), credentialId);
+            throw e;
+        } catch (Exception e) {
+            log.error("Error occurred while deleting credential for user: {}", user.getId(), e);
+            throw new CustomException(ErrorCode.INTERNAL_SERVER_ERROR, "크리덴셜 삭제 중 오류가 발생했습니다.");
+        }
+        
+        return new CredentialDeleteResponse("크리덴셜이 성공적으로 삭제되었습니다.");
+    } 
+
     
 
     /**

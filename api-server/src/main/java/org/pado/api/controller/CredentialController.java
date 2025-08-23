@@ -4,12 +4,14 @@ import java.util.List;
 
 import org.pado.api.core.security.userdetails.CustomUserDetails;
 import org.pado.api.dto.request.CredentialRegisterRequest;
+import org.pado.api.dto.response.CredentialDeleteResponse;
 import org.pado.api.dto.response.CredentialDetailResponse;
 import org.pado.api.dto.response.CredentialResponse;
 import org.pado.api.dto.response.DefaultResponse;
 import org.pado.api.service.CredentialService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -183,4 +185,70 @@ public class CredentialController {
         return ResponseEntity.ok(credentialService.getCredential(userDetails, credentialId));
     }
     
+    // 크리덴셜 삭제
+    @Operation(
+        summary = "크리덴셜 삭제", 
+        description = "크리덴셜을 삭제합니다. Vault와 DB에서 모두 제거됩니다.",
+        security = @SecurityRequirement(name = "bearerAuth")
+    )
+    @ApiResponses({
+        @ApiResponse(
+            responseCode = "204",
+            description = "크리덴셜 삭제 성공"
+        ),
+        @ApiResponse(
+            responseCode = "400",
+            description = "잘못된 요청 (컴포넌트에서 사용 중인 크리덴셜 삭제 시도)",
+            content = @Content(
+                mediaType = "application/json",
+                schema = @Schema(implementation = DefaultResponse.class)
+            )
+        ),
+        @ApiResponse(
+            responseCode = "401",
+            description = "인증 오류 (로그인 필요)",
+            content = @Content(
+                mediaType = "application/json",
+                schema = @Schema(implementation = DefaultResponse.class)
+            )
+        ),
+        @ApiResponse(
+            responseCode = "403",
+            description = "접근 권한 없음",
+            content = @Content(
+                mediaType = "application/json",
+                schema = @Schema(implementation = DefaultResponse.class)
+            )
+        ),
+        @ApiResponse(
+            responseCode = "404",
+            description = "크리덴셜을 찾을 수 없음",
+            content = @Content(
+                mediaType = "application/json",
+                schema = @Schema(implementation = DefaultResponse.class)
+            )
+        ),
+        @ApiResponse(
+            responseCode = "409",
+            description = "사용 중인 크리덴셜 삭제 시도",
+            content = @Content(
+                mediaType = "application/json",
+                schema = @Schema(implementation = DefaultResponse.class)
+            )
+        ),
+        @ApiResponse(
+            responseCode = "500",
+            description = "서버 내부 오류 (Vault 삭제 실패 또는 서비스 내부 오류)",
+            content = @Content(
+                mediaType = "application/json",
+                schema = @Schema(implementation = DefaultResponse.class)
+            )
+        )
+    })
+    @DeleteMapping("/{credentialId}")
+    public ResponseEntity<CredentialDeleteResponse> deleteCredential(
+            @AuthenticationPrincipal CustomUserDetails userDetails,
+            @PathVariable Long credentialId) {
+        return ResponseEntity.ok(credentialService.deleteCredential(userDetails, credentialId));
+    }
 }
