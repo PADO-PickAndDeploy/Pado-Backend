@@ -7,9 +7,13 @@ import org.pado.api.core.exception.CustomException;
 import org.pado.api.core.exception.ErrorCode;
 import org.pado.api.core.security.userdetails.CustomUserDetails;
 import org.pado.api.domain.component.Component;
+import org.pado.api.domain.component.ComponentDefaultSetting;
+import org.pado.api.domain.component.ComponentDefaultSettingRepository;
 import org.pado.api.domain.component.ComponentList;
 import org.pado.api.domain.component.ComponentListRepository;
 import org.pado.api.domain.component.ComponentRepository;
+import org.pado.api.domain.component.ComponentSetting;
+import org.pado.api.domain.component.ComponentSettingRepository;
 import org.pado.api.domain.component.ComponentSubType;
 import org.pado.api.domain.component.ComponentType;
 import org.pado.api.domain.project.Project;
@@ -20,6 +24,7 @@ import org.pado.api.dto.response.ComponentCreateResponse;
 import org.pado.api.dto.response.ComponentListResponse;
 import org.springframework.stereotype.Service;
 
+import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
@@ -30,6 +35,8 @@ public class ComponentService {
     private final ComponentListRepository componentListRepository;
     private final ComponentRepository componentRepository;
     private final ProjectRepository projectRepository;
+    private final ComponentDefaultSettingRepository componentDefaultSettingRepository;
+    private final ComponentSettingRepository componentSettingRepository;
 
     public ComponentListResponse getComponentList() {
         List<ComponentListResponse.ComponentListInfo> components;
@@ -51,7 +58,8 @@ public class ComponentService {
 
         return new ComponentListResponse(components);
     }
-
+    
+    @Transactional
     public ComponentCreateResponse createComponent(Long projectId, ComponentCreateRequest request, CustomUserDetails userDetails) {
         User user = userDetails.getUser();
         Project project = projectRepository.findByIdAndUserId(projectId, user.getId())
@@ -99,6 +107,22 @@ public class ComponentService {
                 log.error("Error occurred while creating parent component", e);
                 throw new CustomException(ErrorCode.INTERNAL_SERVER_ERROR, "부모 컴포넌트 생성 중 오류가 발생했습니다.");
             }
+
+            try {
+                ComponentSetting componentSetting = ComponentSetting.builder()
+                        .componentId(parentComponent.getId())
+                        .version(parentComponent.getId())
+                        .type(parentComponent.getSubtype())
+                        .value(componentDefaultSettingRepository.findByType(parentComponent.getSubtype())
+                                .orElseThrow(() -> new CustomException(ErrorCode.COMPONENT_NOT_FOUND, "컴포넌트 기본 설정을 찾을 수 없습니다."))
+                                .getValue())
+                        .build();
+                componentSettingRepository.save(componentSetting);
+            } catch (Exception e) {
+                log.error("Error occurred while creating component setting", e);
+                componentRepository.delete(parentComponent);
+                throw new CustomException(ErrorCode.INTERNAL_SERVER_ERROR, "컴포넌트 설정 생성 중 오류가 발생했습니다.");
+            }
         }
         try {
             component = Component.builder()
@@ -117,6 +141,22 @@ public class ComponentService {
         } catch (Exception e) {
             log.error("Error occurred while creating component", e);
             throw new CustomException(ErrorCode.INTERNAL_SERVER_ERROR, "컴포넌트 생성 중 오류가 발생했습니다.");
+        }
+
+        try {
+            ComponentSetting componentSetting = ComponentSetting.builder()
+                    .componentId(component.getId())
+                    .version(component.getVersion())
+                    .type(component.getSubtype())
+                    .value(componentDefaultSettingRepository.findByType(component.getSubtype())
+                            .orElseThrow(() -> new CustomException(ErrorCode.COMPONENT_NOT_FOUND, "컴포넌트 기본 설정을 찾을 수 없습니다."))
+                            .getValue())
+                    .build();
+            componentSettingRepository.save(componentSetting);
+        } catch (Exception e) {
+            log.error("Error occurred while creating component setting", e);
+            componentRepository.delete(component);
+            throw new CustomException(ErrorCode.INTERNAL_SERVER_ERROR, "컴포넌트 설정 생성 중 오류가 발생했습니다.");
         }
 
         return new ComponentCreateResponse(
