@@ -1,6 +1,7 @@
 package org.pado.api.service;
 
 import java.util.List;
+import java.util.UUID;
 import java.util.stream.Collectors;
 
 import org.pado.api.core.exception.CustomException;
@@ -40,6 +41,11 @@ public class ComponentService {
     private final ComponentDefaultSettingRepository componentDefaultSettingRepository;
     private final ComponentSettingRepository componentSettingRepository;
 
+    private String generateUniqueName(String name) {
+        String randomSuffix = UUID.randomUUID().toString().substring(0, 8).toLowerCase();
+        return name + "-" + randomSuffix;
+    }
+
     public ComponentListResponse getComponentList() {
         List<ComponentListResponse.ComponentListInfo> components;
         try {
@@ -73,6 +79,8 @@ public class ComponentService {
 
         // Try Catch 를 통한 에러 처리 필요
         ComponentList selectedComponent;
+        Component parentComponent;
+        Component component;
         try {
             selectedComponent = componentListRepository.findByResourceTypeAndServiceType(
                     ComponentSubType.valueOf(request.getResourceType()),
@@ -86,9 +94,6 @@ public class ComponentService {
             throw new CustomException(ErrorCode.INTERNAL_SERVER_ERROR, "컴포넌트 조회 중 오류가 발생했습니다.");
         }
 
-        Component parentComponent;
-        Component component;
-
         if (request.getParentId() != null) {
             parentComponent = componentRepository.findById(request.getParentId())
                     .orElseThrow(() -> new CustomException(ErrorCode.COMPONENT_NOT_FOUND, "부모 컴포넌트를 찾을 수 없습니다."));
@@ -100,7 +105,7 @@ public class ComponentService {
             try {
                 parentComponent = Component.builder()
                         .project(project)
-                        .name(selectedComponent.getResourceType().toString())
+                        .name(generateUniqueName(selectedComponent.getResourceType().toString()))
                         .type(ComponentType.RESOURCE)
                         .subtype(selectedComponent.getResourceType())
                         .thumbnail(selectedComponent.getResourceThumbnail())
@@ -134,7 +139,7 @@ public class ComponentService {
             component = Component.builder()
                     .project(project)
                     .parent(parentComponent)
-                    .name(selectedComponent.getServiceType().toString())
+                    .name(generateUniqueName(selectedComponent.getServiceType().toString()))
                     .type(ComponentType.SERVICE)
                     .subtype(selectedComponent.getServiceType())
                     .thumbnail(selectedComponent.getServiceThumbnail())

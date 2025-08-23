@@ -27,7 +27,8 @@ import lombok.Builder;
 @Table(
     name = "components",
     uniqueConstraints = {
-        @UniqueConstraint(columnNames = {"id", "pid"})
+        @UniqueConstraint(columnNames = {"id", "pid"}),
+        @UniqueConstraint(columnNames = {"name", "pid"})
     }
 )
 @lombok.Getter
