@@ -44,6 +44,8 @@ public enum ErrorCode {
     INVALID_COMPONENT_REQUEST("CP003", "SERVICE 타입은 반드시 부모 컴포넌트가 필요합니다.", HttpStatus.BAD_REQUEST),
     COMPONENT_NOT_FOUND("CP004", "컴포넌트를 찾을 수 없습니다.", HttpStatus.NOT_FOUND),
     COMPONENT_STATE_INVALID("CP005", "컴포넌트 상태가 올바르지 않습니다.", HttpStatus.BAD_REQUEST),
+    COMPONENT_SETTING_NOT_FOUND("CP006", "컴포넌트 설정을 찾을 수 없습니다.", HttpStatus.NOT_FOUND),
+    CONNECTION_NOT_FOUND("CP007", "연결을 찾을 수 없습니다.", HttpStatus.NOT_FOUND),
 
     // ===== Vault 관련 에러 =====
     VAULT_OPERATION_FAILED("V001", "Vault 작업이 실패했습니다.", HttpStatus.INTERNAL_SERVER_ERROR),

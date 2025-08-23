@@ -8,8 +8,10 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 @NoArgsConstructor
 @Getter
-@Schema(description = "컴포넌트 설정 응답 DTO")
-public class ComponentSettingResponse {
-    @Schema(description = "설정 성공 메시지", example = "컴포넌트 설정이 성공적으로 저장되었습니다.")
+@Schema(description = "연결 삭제 응답")
+public class ConnectionDeleteResponse {
+
+    @Schema(description = "삭제 성공 메시지", example = "연결이 성공적으로 삭제되었습니다.")
     private String message;
+    
 }

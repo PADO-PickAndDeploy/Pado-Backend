@@ -1,5 +1,6 @@
 package org.pado.api.domain.component;
 
+import org.pado.api.domain.project.Project;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.util.List;
@@ -13,4 +14,5 @@ public interface ComponentRepository extends JpaRepository<Component, Long> {
     List<Component> findByType(ComponentType type);
     List<Component> findBySubtype(ComponentSubType subtype);
     Optional<Component> findByIdAndProjectUserId(Long id, Long userId);
+    Optional<Component> findByIdAndProjectUserIdAndProjectId(Long id, Long userId, Long projectId);
 }
