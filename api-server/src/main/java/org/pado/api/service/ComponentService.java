@@ -94,6 +94,9 @@ public class ComponentService {
                     ComponentSubType.valueOf(request.getResourceType()),
                     ComponentSubType.valueOf(request.getServiceType()))
                     .orElseThrow(() -> new CustomException(ErrorCode.COMPONENT_NOT_FOUND, "리소스 컴포넌트를 찾을 수 없습니다."));
+        } catch (CustomException e) {
+            log.error("CustomException occurred: {}", e.getMessage());
+            throw e;
         } catch (IllegalArgumentException e) {
             log.error("Invalid ComponentSubType: resourceType={}, serviceType={}", request.getResourceType(), request.getServiceType());
             throw new CustomException(ErrorCode.COMPONENT_NOT_FOUND, "유효하지 않은 컴포넌트 유형입니다.");
@@ -103,7 +106,7 @@ public class ComponentService {
         }
 
         if (request.getParentId() != null) {
-            parentComponent = componentRepository.findById(request.getParentId())
+            parentComponent = componentRepository.findByIdAndProjectId(request.getParentId(), project.getId())
                     .orElseThrow(() -> new CustomException(ErrorCode.COMPONENT_NOT_FOUND, "부모 컴포넌트를 찾을 수 없습니다."));
             if (parentComponent.getSubtype() != selectedComponent.getResourceType()) {
                 log.error("Parent component subtype mismatch: parent={}, child={}", parentComponent.getSubtype(), selectedComponent.getResourceType());
@@ -271,6 +274,7 @@ public class ComponentService {
             Component targetComponent = componentRepository.findByIdAndProjectUserIdAndProjectId(request.getTargetComponentId(), user.getId(), project.getId())
                     .orElseThrow(() -> new CustomException(ErrorCode.COMPONENT_NOT_FOUND, "타겟 컴포넌트를 찾을 수 없습니다."));
 
+            // Source Component, Target Component에 대해서 연결이 가능한지 여부 확인 필요 (예: Service -> Service, Resource 불가능, React -> Spring, Spring -> MySQL)
             ComponentSetting sourceSetting = componentSettingRepository.findFirstByComponentIdOrderByVersionDesc(sourceComponent.getId())
                     .orElseThrow(() -> new CustomException(ErrorCode.COMPONENT_SETTING_NOT_FOUND, "소스 컴포넌트 설정을 찾을 수 없습니다."));
             ComponentSetting targetSetting = componentSettingRepository.findFirstByComponentIdOrderByVersionDesc(targetComponent.getId())
