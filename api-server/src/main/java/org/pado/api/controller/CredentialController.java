@@ -249,6 +249,6 @@ public class CredentialController {
     public ResponseEntity<CredentialDeleteResponse> deleteCredential(
             @AuthenticationPrincipal CustomUserDetails userDetails,
             @PathVariable Long credentialId) {
-        return ResponseEntity.ok(credentialService.deleteCredential(userDetails.getId(), credentialId));
+        return ResponseEntity.ok(credentialService.deleteCredential(userDetails, credentialId));
     }
 }
