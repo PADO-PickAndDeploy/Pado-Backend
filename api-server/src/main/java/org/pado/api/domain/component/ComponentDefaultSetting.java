@@ -15,7 +15,7 @@ import lombok.Setter;
 @Setter
 public class ComponentDefaultSetting {
     @Id
-    private Long id;
+    private String id;
 
     private ComponentSubType type;
     private String value;

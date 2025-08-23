@@ -58,6 +58,9 @@ public class ComponentService {
             throw new CustomException(ErrorCode.INTERNAL_SERVER_ERROR, "컴포넌트 목록 조회 중 오류가 발생했습니다.");
         }
 
+        componentDefaultSettingRepository.findAll().forEach(elem -> {
+            log.info("ComponentDefaultSetting: id={}, type={}, value={}", elem.getId(), elem.getType(), elem.getValue());
+        });
         return new ComponentListResponse(components);
     }
     

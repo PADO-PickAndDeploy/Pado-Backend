@@ -5,7 +5,7 @@ import java.util.Optional;
 
 import org.springframework.data.mongodb.repository.MongoRepository;
 
-public interface ComponentSettingRepository extends MongoRepository<ComponentSetting, Long>  {
+public interface ComponentSettingRepository extends MongoRepository<ComponentSetting, String>  {
     Optional<ComponentSetting> findFirstByComponentIdOrderByVersionDesc(Long componentId);
     List<ComponentSetting> findByComponentId(Long componentId);
 }
