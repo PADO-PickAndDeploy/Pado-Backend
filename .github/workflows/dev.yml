@@ -20,8 +20,9 @@ jobs:
 
       # Vault (dev)
 
-      VAULT_ADDR: http://127.0.0.1:8200
-      VAULT_TOKEN: root
+      VAULT_URI: http://127.0.0.1:8200
+      VAULT_ROLE_ID: "test-role-id"
+      VAULT_SECRET_ID: "test-secret-id"
       
       JWT_SECRET: test-secret
     services:
@@ -99,7 +100,7 @@ jobs:
         done
         # Vault
         for i in {1..30}; do
-          curl -s $VAULT_ADDR/v1/sys/health >/dev/null && echo "Vault up" && break || sleep 2
+          curl -s $VAULT_URI/v1/sys/health >/dev/null && echo "Vault up" && break || sleep 2
         done
 
     - name: Run Tests and Build (in api-server)
