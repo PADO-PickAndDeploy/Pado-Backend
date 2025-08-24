@@ -36,10 +36,12 @@ spring:
 
   cloud:
     vault:
-      uri: http://localhost:8200
-      token: root
-      scheme: http
-      authentication: TOKEN
+      fail-fast: true
+      authentication: APPROLE
+      app-role:
+        role-id: ${VAULT_ROLE_ID}
+        secret-id: ${VAULT_SECRET_ID}
+      uri: ${VAULT_URI}
       connection-timeout: 5000
       read-timeout: 15000
       config:
@@ -85,10 +87,12 @@ spring:
   
   cloud:
     vault:
-      uri: http://${PADO_VAULT_DEV_URL}:8200
-      token: ${VAULT_DEV_TOKEN}
-      scheme: http
-      authentication: TOKEN
+      fail-fast: true
+      authentication: APPROLE
+      app-role:
+        role-id: ${VAULT_ROLE_ID}
+        secret-id: ${VAULT_SECRET_ID}
+      uri: ${VAULT_URI}
       connection-timeout: 5000
       read-timeout: 15000
       config:
@@ -134,10 +138,12 @@ spring:
   
   cloud:
     vault:
+      fail-fast: true
+      authentication: APPROLE
+      app-role:
+        role-id: ${VAULT_ROLE_ID}
+        secret-id: ${VAULT_SECRET_ID}
       uri: http://localhost:8200
-      token: ${VAULT_DEV_TOKEN}
-      scheme: http
-      authentication: TOKEN
       connection-timeout: 5000
       read-timeout: 15000
       config:
