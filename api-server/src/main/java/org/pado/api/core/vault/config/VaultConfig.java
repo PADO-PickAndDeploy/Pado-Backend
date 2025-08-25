@@ -1,5 +1,6 @@
 package org.pado.api.core.vault.config;
 
+import java.time.Duration;
 import java.util.Optional;
 
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
@@ -9,9 +10,13 @@ import org.springframework.vault.authentication.AppRoleAuthentication;
 import org.springframework.vault.authentication.AppRoleAuthenticationOptions;
 import org.springframework.vault.authentication.AppRoleAuthenticationOptions.RoleId;
 import org.springframework.vault.authentication.AppRoleAuthenticationOptions.SecretId;
+import org.springframework.vault.client.VaultClients;
 import org.springframework.vault.client.VaultEndpoint;
 import org.springframework.vault.core.VaultTemplate;
+import org.springframework.vault.support.ClientOptions;
+import org.springframework.vault.support.SslConfiguration;
 import org.springframework.web.client.RestTemplate;
+import org.springframework.web.util.DefaultUriBuilderFactory;
 import org.springframework.beans.factory.annotation.Value;
 
 import lombok.RequiredArgsConstructor;
@@ -40,17 +45,19 @@ public class VaultConfig {
         log.info("Creating VaultTemplate with URI: {}", maskUri(vaultUri));
         
         try {
-            VaultEndpoint endpoint = VaultEndpoint.from(java.net.URI.create(vaultUri));
-            
+            VaultEndpoint vaultEndpoint = VaultEndpoint.from(java.net.URI.create(vaultUri));
+
             AppRoleAuthenticationOptions options = AppRoleAuthenticationOptions.builder()
                     .roleId(RoleId.provided(roleId))
                     .secretId(SecretId.provided(secretId))
                     .build();
             
+                    
             RestTemplate restTemplate = new RestTemplate();
+            restTemplate.setUriTemplateHandler(new DefaultUriBuilderFactory(vaultUri + "/v1/"));
             AppRoleAuthentication auth = new AppRoleAuthentication(options, restTemplate);
             
-            VaultTemplate template = new VaultTemplate(endpoint, auth);
+            VaultTemplate template = new VaultTemplate(vaultEndpoint, auth);
             log.info("VaultTemplate created successfully with AppRole authentication");
             return template;
             

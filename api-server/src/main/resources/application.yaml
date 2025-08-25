@@ -37,6 +37,7 @@ spring:
   cloud:
     vault:
       fail-fast: true
+      enabled: true
       authentication: APPROLE
       app-role:
         role-id: ${VAULT_ROLE_ID}
@@ -89,6 +90,7 @@ spring:
     vault:
       fail-fast: true
       authentication: APPROLE
+      enabled: true
       app-role:
         role-id: ${VAULT_ROLE_ID}
         secret-id: ${VAULT_SECRET_ID}
@@ -98,12 +100,6 @@ spring:
       config:
         lifecycle:
           enabled: false
-
-      kv:
-        enabled: true
-        backend: secret
-        default-context: application
-        profile-separator: '-'
 
 ---
 spring:
@@ -135,10 +131,10 @@ spring:
       uri: mongodb://${PADO_ID}:${PADO_PW}@localhost:27017/pado
     redis:
       url: redis://${PADO_ID}:${PADO_PW}@localhost:6379/0
-  
   cloud:
     vault:
       fail-fast: true
+      enabled: true
       authentication: APPROLE
       app-role:
         role-id: ${VAULT_ROLE_ID}
@@ -149,9 +145,4 @@ spring:
       config:
         lifecycle:
           enabled: false
-
-      kv:
-        enabled: true
-        backend: secret
-        default-context: application
-        profile-separator: '-'
+      

@@ -1,6 +1,5 @@
 package org.pado.api.domain.component;
 
-import org.pado.api.domain.project.Project;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.util.List;
