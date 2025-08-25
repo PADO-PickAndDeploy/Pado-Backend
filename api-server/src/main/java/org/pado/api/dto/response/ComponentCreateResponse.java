@@ -1,6 +1,8 @@
 package org.pado.api.dto.response;
 
 import org.pado.api.domain.component.ComponentType;
+import org.pado.api.domain.component.ComponentDeploymentStatus;
+import org.pado.api.domain.component.ComponentRunningStatus;
 import org.pado.api.domain.component.ComponentSubType;
 
 import io.swagger.v3.oas.annotations.media.Schema;
@@ -33,5 +35,17 @@ public class ComponentCreateResponse {
 
         @Schema(description = "컴포넌트 서브타입", example = "S3")
         private ComponentSubType subtype;
+
+        @Schema(description = "컴포넌트 이름", example = "My Component")
+        private String name;
+
+        @Schema(description = "컴포넌트 썸네일", example = "thumbnail.png")
+        private String thumbnail;
+
+        @Schema(description = "컴포넌트 배포 상태", example = "DRAFT")
+        private ComponentDeploymentStatus deploymentStatus;
+
+        @Schema(description = "컴포넌트 실행 상태", example = "DRAFT")
+        private ComponentRunningStatus runningStatus;
     }
 }

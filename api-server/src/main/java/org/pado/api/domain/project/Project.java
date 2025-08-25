@@ -36,4 +36,6 @@ public class Project extends BaseTimeEntity{
     private String name;
     private String description;
     private String thumbnail;
+    private ProjectDeploymentStatus deploymentStatus;
+    private ProjectRunningStatus runningStatus;
 }

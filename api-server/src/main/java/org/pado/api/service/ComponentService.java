@@ -10,9 +10,11 @@ import org.pado.api.core.security.userdetails.CustomUserDetails;
 import org.pado.api.domain.component.Component;
 import org.pado.api.domain.component.ComponentDefaultSetting;
 import org.pado.api.domain.component.ComponentDefaultSettingRepository;
+import org.pado.api.domain.component.ComponentDeploymentStatus;
 import org.pado.api.domain.component.ComponentList;
 import org.pado.api.domain.component.ComponentListRepository;
 import org.pado.api.domain.component.ComponentRepository;
+import org.pado.api.domain.component.ComponentRunningStatus;
 import org.pado.api.domain.component.ComponentSetting;
 import org.pado.api.domain.component.ComponentSettingRepository;
 import org.pado.api.domain.component.ComponentSubType;
@@ -21,6 +23,7 @@ import org.pado.api.domain.connection.Connection;
 import org.pado.api.domain.connection.ConnectionRepository;
 import org.pado.api.domain.connection.ConnectionType;
 import org.pado.api.domain.project.Project;
+import org.pado.api.domain.project.ProjectDeploymentStatus;
 import org.pado.api.domain.project.ProjectRepository;
 import org.pado.api.domain.user.User;
 import org.pado.api.dto.request.ComponentCreateRequest;
@@ -49,9 +52,18 @@ public class ComponentService {
     private final ComponentSettingRepository componentSettingRepository;
     private final ConnectionRepository connectionRepository;
 
-    private String generateUniqueName(String name) {
+    private static String generateUniqueName(String name) {
         String randomSuffix = UUID.randomUUID().toString().substring(0, 8).toLowerCase();
         return name + "-" + randomSuffix;
+    }
+
+    private static void validateComponentCreation(Project project) {
+        if (project.getDeploymentStatus() != ProjectDeploymentStatus.DRAFT &&
+            project.getDeploymentStatus() != ProjectDeploymentStatus.TERMINATED &&
+            project.getDeploymentStatus() != ProjectDeploymentStatus.DEPLOYED &&
+            project.getDeploymentStatus() != ProjectDeploymentStatus.FAILED) {
+            throw new CustomException(ErrorCode.INVALID_PROJECT_STATUS, "프로젝트가 실행 중이거나 배포 상태입니다. 설정을 변경할 수 없습니다.");
+        }
     }
 
     public ComponentListResponse getComponentList() {
@@ -84,6 +96,7 @@ public class ComponentService {
         User user = userDetails.getUser();
         Project project = projectRepository.findByIdAndUserId(projectId, user.getId())
                 .orElseThrow(() -> new CustomException(ErrorCode.PROJECT_NOT_FOUND, "프로젝트를 찾을 수 없습니다."));
+        validateComponentCreation(project);
 
         // Try Catch 를 통한 에러 처리 필요
         ComponentList selectedComponent;
@@ -121,6 +134,8 @@ public class ComponentService {
                         .subtype(selectedComponent.getResourceType())
                         .thumbnail(selectedComponent.getResourceThumbnail())
                         .version(1L)
+                        .deploymentStatus(ComponentDeploymentStatus.DRAFT)
+                        .runningStatus(ComponentRunningStatus.DRAFT)
                         .deployStartTime(null)
                         .deployEndTime(null)
                         .build();
@@ -146,7 +161,6 @@ public class ComponentService {
                 throw e;
             } catch (Exception e) {
                 log.error("Error occurred while creating component setting", e);
-                componentRepository.delete(parentComponent);
                 throw new CustomException(ErrorCode.INTERNAL_SERVER_ERROR, "컴포넌트 설정 생성 중 오류가 발생했습니다.");
             }
         }
@@ -159,6 +173,8 @@ public class ComponentService {
                     .subtype(selectedComponent.getServiceType())
                     .thumbnail(selectedComponent.getServiceThumbnail())
                     .version(1L)
+                    .deploymentStatus(ComponentDeploymentStatus.DRAFT)
+                    .runningStatus(ComponentRunningStatus.DRAFT)
                     .deployStartTime(null)
                     .deployEndTime(null)
                     .build();
@@ -194,13 +210,21 @@ public class ComponentService {
                         parentComponent.getId(),
                         parentComponent.getVersion(),
                         parentComponent.getType(),
-                        parentComponent.getSubtype()
+                        parentComponent.getSubtype(),
+                        parentComponent.getName(),
+                        parentComponent.getThumbnail(),
+                        parentComponent.getDeploymentStatus(),
+                        parentComponent.getRunningStatus()
                 ),
                 new ComponentCreateResponse.ComponentCreateInfo(
                         component.getId(),
                         component.getVersion(),
                         component.getType(),
-                        component.getSubtype()
+                        component.getSubtype(),
+                        component.getName(),
+                        component.getThumbnail(),
+                        component.getDeploymentStatus(),
+                        component.getRunningStatus()
                 )
         );
     }
@@ -210,8 +234,9 @@ public class ComponentService {
         User user = userDetails.getUser();
         // 프로젝트 및 컴포넌트가 실행 중인지 여부 확인 후 에러 처리 필요 (상태가 DRAFT, STOP이 아닌 경우 수정 불가)
         try {
-            projectRepository.findByIdAndUserId(projectId, user.getId())
+            Project project = projectRepository.findByIdAndUserId(projectId, user.getId())
                             .orElseThrow(() -> new CustomException(ErrorCode.PROJECT_NOT_FOUND, "프로젝트를 찾을 수 없습니다."));
+            validateComponentCreation(project);
             Component component = componentRepository.findByIdAndProjectUserId(componentId, user.getId())
                     .orElseThrow(() -> new CustomException(ErrorCode.COMPONENT_NOT_FOUND, "컴포넌트를 찾을 수 없습니다."));
             // 컴포넌트 연결 업데이트
@@ -240,14 +265,18 @@ public class ComponentService {
         User user = userDetails.getUser();
         // 프로젝트 및 컴포넌트가 실행 중인지 여부 확인 후 에러 처리 필요 (상태가 DRAFT, STOP이 아닌 경우 삭제 불가)
         try {
-            projectRepository.findByIdAndUserId(projectId, user.getId())
+            Project project = projectRepository.findByIdAndUserId(projectId, user.getId())
                     .orElseThrow(() -> new CustomException(ErrorCode.PROJECT_NOT_FOUND, "프로젝트를 찾을 수 없습니다."));
+            validateComponentCreation(project);
             componentRepository.findByIdAndProjectUserId(componentId, user.getId())
                     .orElseThrow(() -> new CustomException(ErrorCode.COMPONENT_NOT_FOUND, "컴포넌트를 찾을 수 없습니다."));
             List<ComponentSetting> componentSettings = componentSettingRepository.findByComponentId(componentId);
             componentSettings.forEach(componentSetting -> {
                 componentSettingRepository.delete(componentSetting);
             });
+        } catch (CustomException e) {
+            log.error("Error occurred while deleting component settings", e);
+            throw e;
         } catch (Exception e) {
             log.error("Error occurred while deleting component settings", e);
             throw new CustomException(ErrorCode.INTERNAL_SERVER_ERROR, "컴포넌트 설정 삭제 중 오류가 발생했습니다.");
@@ -269,6 +298,7 @@ public class ComponentService {
         try {
             Project project = projectRepository.findByIdAndUserId(projectId, user.getId())
                     .orElseThrow(() -> new CustomException(ErrorCode.PROJECT_NOT_FOUND, "프로젝트를 찾을 수 없습니다."));
+            validateComponentCreation(project);
             Component sourceComponent = componentRepository.findByIdAndProjectUserIdAndProjectId(sourceComponentId, user.getId(), project.getId())
                     .orElseThrow(() -> new CustomException(ErrorCode.COMPONENT_NOT_FOUND, "소스 컴포넌트를 찾을 수 없습니다."));
             Component targetComponent = componentRepository.findByIdAndProjectUserIdAndProjectId(request.getTargetComponentId(), user.getId(), project.getId())
@@ -310,6 +340,7 @@ public class ComponentService {
         try {
             Project project = projectRepository.findByIdAndUserId(projectId, user.getId())
                     .orElseThrow(() -> new CustomException(ErrorCode.PROJECT_NOT_FOUND, "프로젝트를 찾을 수 없습니다."));
+            validateComponentCreation(project);
             Component sourceComponent = componentRepository.findByIdAndProjectUserIdAndProjectId(sourceComponentId, user.getId(), project.getId())
                     .orElseThrow(() -> new CustomException(ErrorCode.COMPONENT_NOT_FOUND, "소스 컴포넌트를 찾을 수 없습니다."));
             Connection connection = connectionRepository.findByIdAndFromComponentId(connectionId, sourceComponent.getId())
