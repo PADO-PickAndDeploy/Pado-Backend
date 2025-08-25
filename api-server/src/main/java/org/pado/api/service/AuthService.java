@@ -8,6 +8,8 @@ import org.pado.api.core.exception.ErrorCode;
 import org.pado.api.domain.user.User;
 import org.pado.api.domain.user.UserRepository;
 import org.pado.api.dto.response.DefaultResponse;
+import org.pado.api.dto.response.FindUsernameResponse;
+import org.pado.api.dto.request.FindUsernameRequest;
 import org.pado.api.dto.request.SigninRequest;
 import org.pado.api.dto.response.SigninResponse;
 import org.pado.api.dto.request.SignupRequest;
@@ -158,5 +160,15 @@ public class AuthService {
             return new DefaultResponse("로그아웃이 완료되었습니다");
         }
     }
+
+    // /**
+    //  * 이메일로 아이디 찾기
+    //  * @param request 아이디 찾기 요청 DTO
+    //  * @return 아이디 찾기 응답 DTO (마스킹된 아이디)
+    //  */
+    // @Transactional(readOnly = true)
+    // public FindUsernameResponse findUsernameByEmail(FindUsernameRequest request){
+
+    // }
 }
 

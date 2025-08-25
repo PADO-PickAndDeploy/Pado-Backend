@@ -3,9 +3,11 @@ package org.pado.api.controller;
 import java.util.Map;
 
 import org.pado.api.core.security.userdetails.CustomUserDetails;
+import org.pado.api.dto.request.FindUsernameRequest;
 import org.pado.api.dto.request.SigninRequest;
 import org.pado.api.dto.request.SignupRequest;
 import org.pado.api.dto.response.DefaultResponse;
+import org.pado.api.dto.response.FindUsernameResponse;
 import org.pado.api.dto.response.SigninResponse;
 import org.pado.api.dto.response.SignupResponse;
 import org.pado.api.service.AuthService;
@@ -164,4 +166,38 @@ public class AuthController {
         
         return ResponseEntity.ok(authService.signout(userDetails, refreshToken));
     }
+
+
+    // @Operation(summary = "아이디 찾기", description = "등록한 이메일 주소로 마스킹된 아이디를 조회합니다.")
+    // @ApiResponses({
+    //     @ApiResponse(
+    //         responseCode = "200",
+    //         description = "요청 처리 완료 (계정 존재 여부와 관계없이 항상 200 반환)",
+    //         content = @Content(
+    //             mediaType = "application/json",
+    //             schema = @Schema(implementation = FindUsernameResponse.class)
+    //         )
+    //     ),
+    //     @ApiResponse(
+    //         responseCode = "400",
+    //         description = "잘못된 요청 (이메일 형식 오류, 필수 필드 누락)",
+    //         content = @Content(
+    //             mediaType = "application/json",
+    //             schema = @Schema(implementation = DefaultResponse.class)
+    //         )
+    //     ),
+    //     @ApiResponse(
+    //         responseCode = "500",
+    //         description = "서버 내부 오류",
+    //         content = @Content(
+    //             mediaType = "application/json",
+    //             schema = @Schema(implementation = DefaultResponse.class)
+    //         )
+    //     )
+    // })
+    // @PostMapping("/finduser")
+    // public ResponseEntity<FindUsernameResponse> findUser(@Valid @RequestBody FindUsernameRequest request) {
+    //     return ResponseEntity.ok(authService.findUsernameByEmail(request));
+    // }
+    
 }
