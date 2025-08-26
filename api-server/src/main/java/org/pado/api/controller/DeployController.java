@@ -34,7 +34,7 @@ public class DeployController {
             description = "프로젝트 배포 요청 성공",
             content = @Content(
                 mediaType = "application/json",
-                schema = @Schema(implementation = ProjectCreateResponse.class)
+                schema = @Schema(implementation = DeployStartResponse.class)
             )
         ),
         @ApiResponse(
@@ -75,7 +75,7 @@ public class DeployController {
             description = "프로젝트 배포 중지 요청 성공",
             content = @Content(
                 mediaType = "application/json",
-                schema = @Schema(implementation = ProjectCreateResponse.class)
+                schema = @Schema(implementation = DeployStopResponse.class)
             )
         ),
         @ApiResponse(
