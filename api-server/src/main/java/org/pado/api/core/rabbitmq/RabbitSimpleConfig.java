@@ -19,8 +19,14 @@ public class RabbitSimpleConfig {
     }
 
     @Bean
-    public Binding binding(Queue queue, DirectExchange ex,
-                           @Value("${app.rabbit.routing-key}") String key) {
+    public Binding bindingStart(Queue queue, DirectExchange ex,
+                           @Value("${app.rabbit.routing-key-start}") String key) {
+        return BindingBuilder.bind(queue).to(ex).with(key);
+    }
+
+    @Bean
+    public Binding bindingStop(Queue queue, DirectExchange ex,
+                           @Value("${app.rabbit.routing-key-stop}") String key) {
         return BindingBuilder.bind(queue).to(ex).with(key);
     }
 }

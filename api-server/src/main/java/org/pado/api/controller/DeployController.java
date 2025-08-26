@@ -3,6 +3,7 @@ package org.pado.api.controller;
 import org.pado.api.core.security.userdetails.CustomUserDetails;
 import org.pado.api.dto.response.DefaultResponse;
 import org.pado.api.dto.response.DeployStartResponse;
+import org.pado.api.dto.response.DeployStopResponse;
 import org.pado.api.dto.response.ProjectCreateResponse;
 import org.pado.api.service.DeployService;
 import org.springframework.http.ResponseEntity;
@@ -66,4 +67,44 @@ public class DeployController {
         return ResponseEntity.ok(deployService.startDeployment(projectId, userDetails));
     }
     
+
+    @Operation(summary = "프로젝트 배포 중지", description = "진행 중인 프로젝트 배포를 중지합니다.")
+    @ApiResponses({
+        @ApiResponse(
+            responseCode = "200",
+            description = "프로젝트 배포 중지 요청 성공",
+            content = @Content(
+                mediaType = "application/json",
+                schema = @Schema(implementation = ProjectCreateResponse.class)
+            )
+        ),
+        @ApiResponse(
+            responseCode = "400",
+            description = "잘못된 요청",
+            content = @Content(
+                mediaType = "application/json",
+                schema = @Schema(implementation = DefaultResponse.class)
+            )
+        ),
+        @ApiResponse(
+            responseCode = "401",
+            description = "인증 실패",
+            content = @Content(
+                mediaType = "application/json",
+                schema = @Schema(implementation = DefaultResponse.class)
+            )
+        ),
+        @ApiResponse(
+            responseCode = "500",
+            description = "서버 내부 오류",
+            content = @Content(
+                mediaType = "application/json",
+                schema = @Schema(implementation = DefaultResponse.class)
+            )
+        )
+    })
+    @PostMapping("/projects/{projectId}/deploy/stop")
+    public ResponseEntity<DeployStopResponse> stopProjectDeployment(@PathVariable Long projectId, @AuthenticationPrincipal CustomUserDetails userDetails) {
+        return ResponseEntity.ok(deployService.stopDeployment(projectId, userDetails));
+    }
 }

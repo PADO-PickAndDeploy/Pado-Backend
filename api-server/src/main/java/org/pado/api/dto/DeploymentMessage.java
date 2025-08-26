@@ -10,6 +10,8 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 @AllArgsConstructor
 public class DeploymentMessage {
+    private String operation;
     private String wrappedToken;
+    private String deploymentId;
     private Deployment deployment;
 }

@@ -2,6 +2,7 @@ package org.pado.api.service;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.UUID;
 import java.util.stream.Collectors;
 
 import org.pado.api.core.exception.CustomException;
@@ -24,6 +25,7 @@ import org.pado.api.domain.project.ProjectRunningStatus;
 import org.pado.api.domain.user.User;
 import org.pado.api.dto.DeploymentMessage;
 import org.pado.api.dto.response.DeployStartResponse;
+import org.pado.api.dto.response.DeployStopResponse;
 import org.springframework.stereotype.Service;
 
 import org.springframework.transaction.annotation.Transactional;
@@ -51,6 +53,11 @@ public class DeployService {
         User user = userDetails.getUser();
         Project project = projectRepository.findByIdAndUserIdForUpdate(projectId, user.getId())
                 .orElseThrow(() -> new CustomException(ErrorCode.PROJECT_NOT_FOUND,"프로젝트를 찾을 수 없습니다."));
+
+        if (project.getDeploymentStatus() != ProjectDeploymentStatus.DRAFT &&
+            project.getDeploymentStatus() != ProjectDeploymentStatus.TERMINATED) {
+            throw new CustomException(ErrorCode.INVALID_PROJECT_STATUS, "프로젝트 상태가 올바르지 않습니다.");
+        }
         List<Component> components = componentRepository.findByProjectIdForUpdate(project.getId());
         LocalDateTime requestTime = LocalDateTime.now();
         List<Deployment.ComponentInfo> componentInfos;
@@ -113,13 +120,14 @@ public class DeployService {
                 .projectId(project.getId())
                 .createdAt(requestTime)
                 .components(componentInfos)
+                .deploymentId(UUID.randomUUID().toString())
                 .build();
 
         deploymentRepository.save(deployment);
         
         String goRoleName = "go-role";
         String wrappedToken = deployVaultService.issueWrappedSecretId(goRoleName, 60);
-        DeploymentMessage message = new DeploymentMessage(wrappedToken, deployment);
+        DeploymentMessage message = new DeploymentMessage("start", wrappedToken, deployment.getDeploymentId(), deployment);
 
         String json;
         try {
@@ -127,8 +135,45 @@ public class DeployService {
         } catch (com.fasterxml.jackson.core.JsonProcessingException e) {
             throw new CustomException(ErrorCode.INTERNAL_SERVER_ERROR, "메시지 직렬화 중 오류가 발생했습니다.", e);
         }
-        rabbitSendService.sendDefault(json);
+        rabbitSendService.sendStart(json);
 
-        return new DeployStartResponse(requestTime, "Deployment started for project ID: " + projectId);
+        return new DeployStartResponse(requestTime, "Deployment started for project ID: " + projectId, deployment.getDeploymentId());
+    }
+
+    @Transactional
+    public DeployStopResponse stopDeployment(Long projectId, CustomUserDetails userDetails) {
+
+        User user = userDetails.getUser();
+        Project project = projectRepository.findByIdAndUserIdForUpdate(projectId, user.getId())
+                .orElseThrow(() -> new CustomException(ErrorCode.PROJECT_NOT_FOUND,"프로젝트를 찾을 수 없습니다."));
+        if (project.getDeploymentStatus() != ProjectDeploymentStatus.QUEUED &&
+            project.getDeploymentStatus() != ProjectDeploymentStatus.FAILED &&
+            project.getDeploymentStatus() != ProjectDeploymentStatus.DEPLOYING) {
+            throw new CustomException(ErrorCode.INVALID_PROJECT_STATUS, "프로젝트 상태가 올바르지 않습니다.");
+        }
+        Deployment deployment = deploymentRepository.findTopByProjectIdOrderByCreatedAtDesc(projectId)
+                .orElseThrow(() -> new CustomException(ErrorCode.DEPLOYMENT_NOT_FOUND, "진행 중인 배포를 찾을 수 없습니다."));
+        List<Component> components = componentRepository.findByProjectIdForUpdate(project.getId());
+
+        project.setDeploymentStatus(ProjectDeploymentStatus.STOP_REQUESTED);
+        components.forEach(component -> {
+            component.setDeploymentStatus(ComponentDeploymentStatus.STOP_REQUESTED);
+        });
+        LocalDateTime requestTime = LocalDateTime.now();
+
+        // Stop the deployment logic here
+        String goRoleName = "go-role";
+        String wrappedToken = deployVaultService.issueWrappedSecretId(goRoleName, 60);
+        DeploymentMessage message = new DeploymentMessage("stop", wrappedToken, deployment.getDeploymentId(), null);
+
+        String json;
+        try {
+            json = objectMapper.writeValueAsString(message);
+        } catch (com.fasterxml.jackson.core.JsonProcessingException e) {
+            throw new CustomException(ErrorCode.INTERNAL_SERVER_ERROR, "메시지 직렬화 중 오류가 발생했습니다.", e);
+        }
+        rabbitSendService.sendStop(json);
+
+        return new DeployStopResponse(requestTime, "Deployment stopped for project ID: " + projectId, deployment.getDeploymentId());
     }
 }

@@ -11,7 +11,8 @@ app:
   rabbit:
     exchange: pado.direct
     queue: pado.q
-    routing-key: deploy.start
+    routing-key-start: deploy.start
+    routing-key-stop: deploy.stop
 ---
 spring:
   config:

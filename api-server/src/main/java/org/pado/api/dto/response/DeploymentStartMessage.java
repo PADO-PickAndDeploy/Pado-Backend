@@ -10,14 +10,14 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 @NoArgsConstructor
 @Getter
-@Schema(description = "Deployment Start Response")
-public class DeployStartResponse {
+public class DeploymentStartMessage {
+    
     @Schema(description = "Deployment request time")
     private LocalDateTime requestTime;
 
     @Schema(description = "Deployment start message")
     private String message;
-    
+
     @Schema(description = "Deployment ID")
     private String deploymentId;
 }

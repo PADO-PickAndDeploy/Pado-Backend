@@ -3,21 +3,15 @@ package org.pado.api.domain.deployment;
 import java.time.LocalDateTime;
 import java.util.List;
 
-import org.pado.api.domain.component.ComponentDeploymentStatus;
-import org.pado.api.domain.component.ComponentRunningStatus;
 import org.pado.api.domain.component.ComponentSubType;
 import org.pado.api.domain.component.ComponentType;
-import org.pado.api.domain.project.ProjectDeploymentStatus;
-import org.pado.api.domain.project.ProjectRunningStatus;
 import org.springframework.data.mongodb.core.mapping.Document;
 
-import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.persistence.Id;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
-import lombok.RequiredArgsConstructor;
 import lombok.Setter;
 
 @Document
@@ -29,6 +23,7 @@ import lombok.Setter;
 public class Deployment {
     @Id
     private String id;
+    private String deploymentId;
     private Long projectId;
     private LocalDateTime createdAt;
 
