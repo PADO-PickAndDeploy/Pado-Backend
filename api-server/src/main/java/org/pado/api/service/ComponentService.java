@@ -37,7 +37,7 @@ import org.pado.api.dto.response.ConnectionCreateResponse;
 import org.pado.api.dto.response.ConnectionDeleteResponse;
 import org.springframework.stereotype.Service;
 
-import jakarta.transaction.Transactional;
+import org.springframework.transaction.annotation.Transactional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
@@ -66,6 +66,7 @@ public class ComponentService {
         }
     }
 
+    @Transactional(readOnly = true)
     public ComponentListResponse getComponentList() {
         List<ComponentListResponse.ComponentListInfo> components;
         try {
@@ -94,7 +95,7 @@ public class ComponentService {
     public ComponentCreateResponse createComponent(Long projectId, ComponentCreateRequest request, CustomUserDetails userDetails) {
         // 프로젝트 및 컴포넌트가 실행 중인지 여부 확인 후 에러 처리 필요 (상태가 DRAFT, STOP이 아닌 경우 삭제 불가)
         User user = userDetails.getUser();
-        Project project = projectRepository.findByIdAndUserId(projectId, user.getId())
+        Project project = projectRepository.findByIdAndUserIdForUpdate(projectId, user.getId())
                 .orElseThrow(() -> new CustomException(ErrorCode.PROJECT_NOT_FOUND, "프로젝트를 찾을 수 없습니다."));
         validateComponentCreation(project);
 
@@ -133,7 +134,6 @@ public class ComponentService {
                         .type(ComponentType.RESOURCE)
                         .subtype(selectedComponent.getResourceType())
                         .thumbnail(selectedComponent.getResourceThumbnail())
-                        .version(1L)
                         .deploymentStatus(ComponentDeploymentStatus.DRAFT)
                         .runningStatus(ComponentRunningStatus.DRAFT)
                         .deployStartTime(null)
@@ -150,7 +150,6 @@ public class ComponentService {
                         .orElseThrow(() -> new CustomException(ErrorCode.COMPONENT_NOT_FOUND, "컴포넌트 기본 설정을 찾을 수 없습니다."));
                 ComponentSetting componentSetting = ComponentSetting.builder()
                         .componentId(parentComponent.getId())
-                        .version(parentComponent.getId())
                         .type(parentComponent.getSubtype())
                         .port(defaultSetting.getDefaultPort())
                         .value(defaultSetting.getValue())
@@ -172,7 +171,6 @@ public class ComponentService {
                     .type(ComponentType.SERVICE)
                     .subtype(selectedComponent.getServiceType())
                     .thumbnail(selectedComponent.getServiceThumbnail())
-                    .version(1L)
                     .deploymentStatus(ComponentDeploymentStatus.DRAFT)
                     .runningStatus(ComponentRunningStatus.DRAFT)
                     .deployStartTime(null)
@@ -190,7 +188,6 @@ public class ComponentService {
                     .orElseThrow(() -> new CustomException(ErrorCode.COMPONENT_NOT_FOUND, "컴포넌트 기본 설정을 찾을 수 없습니다."));
             ComponentSetting componentSetting = ComponentSetting.builder()
                     .componentId(component.getId())
-                    .version(component.getVersion())
                     .type(component.getSubtype())
                     .port(defaultSetting.getDefaultPort())
                     .value(defaultSetting.getValue())
@@ -208,7 +205,6 @@ public class ComponentService {
         return new ComponentCreateResponse(
                 new ComponentCreateResponse.ComponentCreateInfo(
                         parentComponent.getId(),
-                        parentComponent.getVersion(),
                         parentComponent.getType(),
                         parentComponent.getSubtype(),
                         parentComponent.getName(),
@@ -218,7 +214,6 @@ public class ComponentService {
                 ),
                 new ComponentCreateResponse.ComponentCreateInfo(
                         component.getId(),
-                        component.getVersion(),
                         component.getType(),
                         component.getSubtype(),
                         component.getName(),
@@ -234,7 +229,7 @@ public class ComponentService {
         User user = userDetails.getUser();
         // 프로젝트 및 컴포넌트가 실행 중인지 여부 확인 후 에러 처리 필요 (상태가 DRAFT, STOP이 아닌 경우 수정 불가)
         try {
-            Project project = projectRepository.findByIdAndUserId(projectId, user.getId())
+            Project project = projectRepository.findByIdAndUserIdForUpdate(projectId, user.getId())
                             .orElseThrow(() -> new CustomException(ErrorCode.PROJECT_NOT_FOUND, "프로젝트를 찾을 수 없습니다."));
             validateComponentCreation(project);
             Component component = componentRepository.findByIdAndProjectUserId(componentId, user.getId())
@@ -248,7 +243,7 @@ public class ComponentService {
                 connection.setToPort(request.getPort());
                 connectionRepository.save(connection);
             });
-            ComponentSetting componentSetting = componentSettingRepository.findFirstByComponentIdOrderByVersionDesc(component.getId())
+            ComponentSetting componentSetting = componentSettingRepository.findByComponentId(component.getId())
                     .orElseThrow(() -> new CustomException(ErrorCode.COMPONENT_NOT_FOUND, "컴포넌트 설정을 찾을 수 없습니다."));
             componentSetting.setPort(request.getPort());
             componentSetting.setValue(request.getSettingJson());
@@ -265,15 +260,14 @@ public class ComponentService {
         User user = userDetails.getUser();
         // 프로젝트 및 컴포넌트가 실행 중인지 여부 확인 후 에러 처리 필요 (상태가 DRAFT, STOP이 아닌 경우 삭제 불가)
         try {
-            Project project = projectRepository.findByIdAndUserId(projectId, user.getId())
+            Project project = projectRepository.findByIdAndUserIdForUpdate(projectId, user.getId())
                     .orElseThrow(() -> new CustomException(ErrorCode.PROJECT_NOT_FOUND, "프로젝트를 찾을 수 없습니다."));
             validateComponentCreation(project);
             componentRepository.findByIdAndProjectUserId(componentId, user.getId())
                     .orElseThrow(() -> new CustomException(ErrorCode.COMPONENT_NOT_FOUND, "컴포넌트를 찾을 수 없습니다."));
-            List<ComponentSetting> componentSettings = componentSettingRepository.findByComponentId(componentId);
-            componentSettings.forEach(componentSetting -> {
-                componentSettingRepository.delete(componentSetting);
-            });
+            ComponentSetting componentSettings = componentSettingRepository.findByComponentId(componentId)
+                    .orElseThrow(() -> new CustomException(ErrorCode.COMPONENT_SETTING_NOT_FOUND, "컴포넌트 설정을 찾을 수 없습니다."));
+            componentSettingRepository.delete(componentSettings);
         } catch (CustomException e) {
             log.error("Error occurred while deleting component settings", e);
             throw e;
@@ -296,7 +290,7 @@ public class ComponentService {
     public ConnectionCreateResponse createConnection(Long projectId, Long sourceComponentId, ConnectionCreateRequest request, CustomUserDetails userDetails) {
         User user = userDetails.getUser();
         try {
-            Project project = projectRepository.findByIdAndUserId(projectId, user.getId())
+            Project project = projectRepository.findByIdAndUserIdForUpdate(projectId, user.getId())
                     .orElseThrow(() -> new CustomException(ErrorCode.PROJECT_NOT_FOUND, "프로젝트를 찾을 수 없습니다."));
             validateComponentCreation(project);
             Component sourceComponent = componentRepository.findByIdAndProjectUserIdAndProjectId(sourceComponentId, user.getId(), project.getId())
@@ -305,9 +299,9 @@ public class ComponentService {
                     .orElseThrow(() -> new CustomException(ErrorCode.COMPONENT_NOT_FOUND, "타겟 컴포넌트를 찾을 수 없습니다."));
 
             // Source Component, Target Component에 대해서 연결이 가능한지 여부 확인 필요 (예: Service -> Service, Resource 불가능, React -> Spring, Spring -> MySQL)
-            ComponentSetting sourceSetting = componentSettingRepository.findFirstByComponentIdOrderByVersionDesc(sourceComponent.getId())
+            ComponentSetting sourceSetting = componentSettingRepository.findByComponentId(sourceComponent.getId())
                     .orElseThrow(() -> new CustomException(ErrorCode.COMPONENT_SETTING_NOT_FOUND, "소스 컴포넌트 설정을 찾을 수 없습니다."));
-            ComponentSetting targetSetting = componentSettingRepository.findFirstByComponentIdOrderByVersionDesc(targetComponent.getId())
+            ComponentSetting targetSetting = componentSettingRepository.findByComponentId(targetComponent.getId())
                     .orElseThrow(() -> new CustomException(ErrorCode.COMPONENT_SETTING_NOT_FOUND, "타겟 컴포넌트 설정을 찾을 수 없습니다."));
             Connection connection = Connection.builder()
                     .fromComponent(sourceComponent)
@@ -338,7 +332,7 @@ public class ComponentService {
     public ConnectionDeleteResponse deleteConnection(Long projectId, Long sourceComponentId, Long connectionId, CustomUserDetails userDetails) {
         User user = userDetails.getUser();
         try {
-            Project project = projectRepository.findByIdAndUserId(projectId, user.getId())
+            Project project = projectRepository.findByIdAndUserIdForUpdate(projectId, user.getId())
                     .orElseThrow(() -> new CustomException(ErrorCode.PROJECT_NOT_FOUND, "프로젝트를 찾을 수 없습니다."));
             validateComponentCreation(project);
             Component sourceComponent = componentRepository.findByIdAndProjectUserIdAndProjectId(sourceComponentId, user.getId(), project.getId())

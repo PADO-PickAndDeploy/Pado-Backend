@@ -128,7 +128,6 @@ public class ProjectService {
                     .stream()
                     .map(component -> new ProjectDetailResponse.ComponentInfo(
                             component.getId(),
-                            component.getVersion(),
                             component.getName(),
                             component.getType(),
                             component.getSubtype(),
@@ -140,7 +139,6 @@ public class ProjectService {
                             component.getChildren().stream()
                                     .map(child -> new ProjectDetailResponse.ComponentInfo(
                                             child.getId(),
-                                            child.getVersion(),
                                             child.getName(),
                                             child.getType(),
                                             child.getSubtype(),
@@ -194,7 +192,7 @@ public class ProjectService {
         Project project;
 
         try {
-            project = projectRepository.findByIdAndUserId(id, user.getId())
+            project = projectRepository.findByIdAndUserIdForUpdate(id, user.getId())
                     .orElseThrow(() -> new CustomException(ErrorCode.PROJECT_NOT_FOUND, "프로젝트를 찾을 수 없습니다."));
             validateComponentCreation(project);
             projectRepository.delete(project);

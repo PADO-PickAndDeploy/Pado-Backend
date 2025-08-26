@@ -20,7 +20,6 @@ public class ComponentSetting {
     private String id;
 
     private Long componentId;
-    private Long version;
     private Long port;
     private ComponentSubType type;
     private String value;

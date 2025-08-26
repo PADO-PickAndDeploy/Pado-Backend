@@ -27,9 +27,6 @@ public class ComponentCreateResponse {
         @Schema(description = "컴포넌트 ID", example = "1")
         private Long id;
 
-        @Schema(description = "컴포넌트 버전", example = "1")
-        private Long version;
-
         @Schema(description = "컴포넌트 타입", example = "RESOURCE")
         private ComponentType type;
 

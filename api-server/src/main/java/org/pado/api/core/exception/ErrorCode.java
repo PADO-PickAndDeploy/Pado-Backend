@@ -49,6 +49,9 @@ public enum ErrorCode {
     COMPONENT_SETTING_NOT_FOUND("CP006", "컴포넌트 설정을 찾을 수 없습니다.", HttpStatus.NOT_FOUND),
     CONNECTION_NOT_FOUND("CP007", "연결을 찾을 수 없습니다.", HttpStatus.NOT_FOUND),
 
+    // ===== 배포 관련 에러 =====
+    DEPLOYMENT_NOT_FOUND("D001", "배포를 찾을 수 없습니다.", HttpStatus.NOT_FOUND),
+
     // ===== Vault 관련 에러 =====
     VAULT_OPERATION_FAILED("V001", "Vault 작업이 실패했습니다.", HttpStatus.INTERNAL_SERVER_ERROR),
     VAULT_CONNECTION_FAILED("V002", "Vault 연결에 실패했습니다.", HttpStatus.INTERNAL_SERVER_ERROR),
