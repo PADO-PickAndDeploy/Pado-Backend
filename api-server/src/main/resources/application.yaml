@@ -8,6 +8,10 @@ jwt:
 app:
   cors:
     allowed-origins: ${APP_CORS_ALLOWED_ORIGINS:http://localhost:3000,http://localhost:5173}
+  rabbit:
+    exchange: pado.direct
+    queue: pado.q
+    routing-key: deploy.start
 ---
 spring:
   config:
@@ -52,8 +56,13 @@ spring:
       kv:
         enabled: true
         backend: secret
-        default-context: application
-        profile-separator: '-'
+  
+  rabbitmq:
+    host: ${PADO_RABBITMQ_HOST}
+    port: 5672
+    username: ${RABBITMQ_USERNAME}
+    password: ${RABBITMQ_PASSWORD}
+    virtual-host: /
 ---
 server:
   forward-headers-strategy: framework
@@ -100,6 +109,12 @@ spring:
       config:
         lifecycle:
           enabled: false
+  rabbitmq:
+    host: ${PADO_RABBITMQ_HOST}
+    port: 5672
+    username: ${PADO_ID}
+    password: ${PADO_PW}
+    virtual-host: pado
 
 ---
 spring:
@@ -145,4 +160,9 @@ spring:
       config:
         lifecycle:
           enabled: false
-      
+  rabbitmq:
+    host: localhost
+    port: 5672
+    username: ${PADO_ID}
+    password: ${PADO_PW}
+    virtual-host: pado

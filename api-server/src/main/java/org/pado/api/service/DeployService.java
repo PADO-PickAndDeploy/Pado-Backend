@@ -6,6 +6,7 @@ import java.util.stream.Collectors;
 
 import org.pado.api.core.exception.CustomException;
 import org.pado.api.core.exception.ErrorCode;
+import org.pado.api.core.rabbitmq.RabbitSendService;
 import org.pado.api.core.security.userdetails.CustomUserDetails;
 import org.pado.api.core.vault.service.DeployVaultService;
 import org.pado.api.domain.component.Component;
@@ -21,10 +22,14 @@ import org.pado.api.domain.project.ProjectDeploymentStatus;
 import org.pado.api.domain.project.ProjectRepository;
 import org.pado.api.domain.project.ProjectRunningStatus;
 import org.pado.api.domain.user.User;
+import org.pado.api.dto.DeploymentMessage;
 import org.pado.api.dto.response.DeployStartResponse;
 import org.springframework.stereotype.Service;
 
 import org.springframework.transaction.annotation.Transactional;
+
+import com.fasterxml.jackson.databind.ObjectMapper;
+
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
@@ -38,8 +43,10 @@ public class DeployService {
     private final ComponentSettingRepository componentSettingRepository;
     private final ConnectionRepository connectionRepository;
     private final DeployVaultService deployVaultService;
+    private final RabbitSendService rabbitSendService;
+    private final ObjectMapper objectMapper;
 
-    @Transactional(readOnly = true)
+    @Transactional
     public DeployStartResponse startDeployment(Long projectId, CustomUserDetails userDetails) {
         User user = userDetails.getUser();
         Project project = projectRepository.findByIdAndUserIdForUpdate(projectId, user.getId())
@@ -112,9 +119,15 @@ public class DeployService {
         
         String goRoleName = "go-role";
         String wrappedToken = deployVaultService.issueWrappedSecretId(goRoleName, 60);
+        DeploymentMessage message = new DeploymentMessage(wrappedToken, deployment);
 
-        // RabbitMQ를 통해 내용 큐에 전송하는 로직은 추후 구현 예정
-
+        String json;
+        try {
+            json = objectMapper.writeValueAsString(message);
+        } catch (com.fasterxml.jackson.core.JsonProcessingException e) {
+            throw new CustomException(ErrorCode.INTERNAL_SERVER_ERROR, "메시지 직렬화 중 오류가 발생했습니다.", e);
+        }
+        rabbitSendService.sendDefault(json);
 
         return new DeployStartResponse(requestTime, "Deployment started for project ID: " + projectId);
     }

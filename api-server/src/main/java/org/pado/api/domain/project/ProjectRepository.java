@@ -16,6 +16,6 @@ public interface ProjectRepository extends JpaRepository<Project, Long> {
     Optional<Project> findByIdAndUserId(Long id, Long userId);
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)
-    @Query("SELECT d FROM Project d WHERE d.id = :id AND d.userId = :userId")
+    @Query("SELECT d FROM Project d WHERE d.id = :id AND d.user.id = :userId")
     Optional<Project> findByIdAndUserIdForUpdate(Long id, Long userId);
 }
