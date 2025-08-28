@@ -1,14 +1,18 @@
 package org.pado.api.core.admin;
 
+import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
 import org.pado.api.domain.component.ComponentDefaultSettingRepository;
+import org.pado.api.domain.component.ComponentDeploymentStatus;
 import org.pado.api.domain.component.ComponentList;
 import org.pado.api.domain.component.ComponentListRepository;
 import org.pado.api.domain.component.ComponentRepository;
+import org.pado.api.domain.component.ComponentRunningStatus;
 import org.pado.api.domain.component.ComponentSetting;
 import org.pado.api.domain.component.ComponentSettingRepository;
 import org.pado.api.domain.component.ComponentSubType;
@@ -18,19 +22,26 @@ import org.pado.api.domain.connection.ConnectionRepository;
 import org.pado.api.domain.connection.ConnectionType;
 import org.pado.api.domain.credential.Credential;
 import org.pado.api.domain.credential.CredentialRepository;
+import org.pado.api.domain.deployment.Deployment;
+import org.pado.api.domain.deployment.DeploymentRepository;
 import org.pado.api.domain.project.Project;
+import org.pado.api.domain.project.ProjectDeploymentStatus;
 import org.pado.api.domain.project.ProjectRepository;
+import org.pado.api.domain.project.ProjectRunningStatus;
 import org.pado.api.domain.user.User;
 import org.pado.api.domain.user.UserRepository;
 import org.pado.api.core.admin.dto.request.AdminSignupRequest;
 import org.pado.api.core.admin.dto.response.AdminSignupResponse;
 import org.pado.api.core.exception.CustomException;
 import org.pado.api.core.exception.ErrorCode;
+import org.pado.api.core.rabbitmq.RabbitSendService;
 import org.pado.api.core.security.userdetails.CustomUserDetails;
 import org.pado.api.core.vault.service.CredentialVaultService;
+import org.pado.api.core.vault.service.DeployVaultService;
 import org.pado.api.domain.common.Status;
 import org.pado.api.domain.component.Component;
 import org.pado.api.domain.component.ComponentDefaultSetting;
+import org.pado.api.dto.DeploymentMessage;
 import org.pado.api.dto.request.ComponentCreateRequest;
 import org.pado.api.dto.request.ComponentSettingRequest;
 import org.pado.api.dto.request.ConnectionCreateRequest;
@@ -46,12 +57,17 @@ import org.pado.api.dto.response.CredentialDeleteResponse;
 import org.pado.api.dto.response.CredentialDetailResponse;
 import org.pado.api.dto.response.CredentialResponse;
 import org.pado.api.dto.response.DefaultResponse;
+import org.pado.api.dto.response.DeployStartResponse;
+import org.pado.api.dto.response.DeployStopResponse;
 import org.pado.api.dto.response.ProjectCreateResponse;
 import org.pado.api.dto.response.ProjectDetailResponse;
 import org.pado.api.dto.response.ProjectListResponse;
 import org.springframework.stereotype.Service;
 
 import org.springframework.transaction.annotation.Transactional;
+
+import com.fasterxml.jackson.databind.ObjectMapper;
+
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
@@ -60,14 +76,22 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 public class AdminService {
     private final UserRepository userRepository;
+    
     private final CredentialRepository credentialRepository;
     private final CredentialVaultService credentialVaultService;
+    
     private final ProjectRepository projectRepository;
+    
     private final ComponentDefaultSettingRepository componentDefaultSettingRepository;
     private final ConnectionRepository connectionRepository;
     private final ComponentRepository componentRepository;
     private final ComponentSettingRepository componentSettingRepository;
     private final ComponentListRepository componentListRepository;
+    
+    private final DeploymentRepository deploymentRepository;
+    private final DeployVaultService deployVaultService;
+    private final RabbitSendService rabbitSendService;
+    private final ObjectMapper objectMapper;
 
     private static final DateTimeFormatter formatter = DateTimeFormatter.ISO_LOCAL_DATE_TIME;
 
@@ -221,6 +245,15 @@ public class AdminService {
     } 
 
     /** ----------------- Project ----------------- */
+    private static void validateComponentCreation(Project project) {
+        if (project.getDeploymentStatus() != ProjectDeploymentStatus.DRAFT &&
+            project.getDeploymentStatus() != ProjectDeploymentStatus.TERMINATED &&
+            project.getDeploymentStatus() != ProjectDeploymentStatus.DEPLOYED &&
+            project.getDeploymentStatus() != ProjectDeploymentStatus.FAILED) {
+            throw new CustomException(ErrorCode.INVALID_PROJECT_STATUS, "프로젝트가 실행 중이거나 배포 상태입니다. 설정을 변경할 수 없습니다.");
+        }
+    }
+
     @Transactional
     public ProjectCreateResponse createProject(ProjectCreateRequest request, Long userId) {
         User user = userRepository.findById(userId)
@@ -231,6 +264,8 @@ public class AdminService {
                 .description(request.getDescription())
                 .user(user)
                 .thumbnail(null)
+                .deploymentStatus(ProjectDeploymentStatus.DRAFT)
+                .runningStatus(ProjectRunningStatus.DRAFT)
                 .build();
         try {
             if (projectRepository.existsByUserIdAndName(user.getId(), project.getName())) {
@@ -250,7 +285,8 @@ public class AdminService {
                 project.getId(),
                 project.getName(),
                 project.getDescription(),
-                Status.ACTIVE,
+                project.getDeploymentStatus(),
+                project.getRunningStatus(),
                 project.getThumbnail(),
                 project.getCreatedAt(),
                 project.getUpdatedAt()
@@ -261,8 +297,7 @@ public class AdminService {
     public ProjectListResponse getProjects(Long userId) {
         User user = userRepository.findById(userId)
                     .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
-        
-                    List<Project> projects;
+        List<Project> projects;
 
         try {
             projects = projectRepository.findByUserId(user.getId());
@@ -276,7 +311,8 @@ public class AdminService {
                         project.getId(),
                         project.getName(),
                         project.getDescription(),
-                        Status.START,
+                        project.getDeploymentStatus(),
+                        project.getRunningStatus(),
                         project.getThumbnail(),
                         project.getCreatedAt(),
                         project.getUpdatedAt()
@@ -308,21 +344,23 @@ public class AdminService {
                     .stream()
                     .map(component -> new ProjectDetailResponse.ComponentInfo(
                             component.getId(),
-                            component.getVersion(),
                             component.getName(),
                             component.getType(),
                             component.getSubtype(),
                             component.getThumbnail(),
+                            component.getDeploymentStatus(),
+                            component.getRunningStatus(),
                             component.getDeployStartTime(),
                             component.getDeployEndTime(),
                             component.getChildren().stream()
                                     .map(child -> new ProjectDetailResponse.ComponentInfo(
                                             child.getId(),
-                                            child.getVersion(),
                                             child.getName(),
                                             child.getType(),
                                             child.getSubtype(),
                                             child.getThumbnail(),
+                                            child.getDeploymentStatus(),
+                                            child.getRunningStatus(),
                                             child.getDeployStartTime(),
                                             child.getDeployEndTime(),
                                             null,
@@ -356,7 +394,8 @@ public class AdminService {
                 project.getName(),
                 project.getDescription(),
                 project.getThumbnail(),
-                Status.ACTIVE,
+                project.getDeploymentStatus(),
+                project.getRunningStatus(),
                 project.getCreatedAt(),
                 project.getUpdatedAt(),
                 components
@@ -370,12 +409,9 @@ public class AdminService {
         Project project;
 
         try {
-            project = projectRepository.findByIdAndUserId(id, user.getId())
+            project = projectRepository.findByIdAndUserIdForUpdate(id, user.getId())
                     .orElseThrow(() -> new CustomException(ErrorCode.PROJECT_NOT_FOUND, "프로젝트를 찾을 수 없습니다."));
-            // 추후 개발 예정 부분 (프로젝트 상태를 가져오는 메소드를 통해 현재 상태를 확인 및 특정 상태일 때 삭제 가능 여부 판단)
-            // if (project.getStatus() != Status.DRAFT || project.getStatus() != Status.STOP) {
-            //     throw new CustomException(ErrorCode.PROJECT_DELETION_NOT_ALLOWED, "프로젝트 상태가 삭제를 허용하지 않습니다.");
-            // }
+            validateComponentCreation(project);
             projectRepository.delete(project);
         } catch (CustomException e) {
             log.warn("Project not found for user: {}, project ID: {}", user.getId(), id);
@@ -393,6 +429,16 @@ public class AdminService {
         return name + "-" + randomSuffix;
     }
 
+    // private static void validateComponentCreation(Project project) {
+    //     if (project.getDeploymentStatus() != ProjectDeploymentStatus.DRAFT &&
+    //         project.getDeploymentStatus() != ProjectDeploymentStatus.TERMINATED &&
+    //         project.getDeploymentStatus() != ProjectDeploymentStatus.DEPLOYED &&
+    //         project.getDeploymentStatus() != ProjectDeploymentStatus.FAILED) {
+    //         throw new CustomException(ErrorCode.INVALID_PROJECT_STATUS, "프로젝트가 실행 중이거나 배포 상태입니다. 설정을 변경할 수 없습니다.");
+    //     }
+    // }
+    
+    @Transactional(readOnly = true)
     public ComponentListResponse getComponentList() {
         List<ComponentListResponse.ComponentListInfo> components;
         try {
@@ -460,7 +506,8 @@ public class AdminService {
                         .type(ComponentType.RESOURCE)
                         .subtype(selectedComponent.getResourceType())
                         .thumbnail(selectedComponent.getResourceThumbnail())
-                        .version(1L)
+                        .deploymentStatus(ComponentDeploymentStatus.DRAFT)
+                        .runningStatus(ComponentRunningStatus.DRAFT)
                         .deployStartTime(null)
                         .deployEndTime(null)
                         .build();
@@ -475,7 +522,6 @@ public class AdminService {
                         .orElseThrow(() -> new CustomException(ErrorCode.COMPONENT_NOT_FOUND, "컴포넌트 기본 설정을 찾을 수 없습니다."));
                 ComponentSetting componentSetting = ComponentSetting.builder()
                         .componentId(parentComponent.getId())
-                        .version(parentComponent.getId())
                         .type(parentComponent.getSubtype())
                         .port(defaultSetting.getDefaultPort())
                         .value(defaultSetting.getValue())
@@ -486,7 +532,6 @@ public class AdminService {
                 throw e;
             } catch (Exception e) {
                 log.error("Error occurred while creating component setting", e);
-                componentRepository.delete(parentComponent);
                 throw new CustomException(ErrorCode.INTERNAL_SERVER_ERROR, "컴포넌트 설정 생성 중 오류가 발생했습니다.");
             }
         }
@@ -498,7 +543,8 @@ public class AdminService {
                     .type(ComponentType.SERVICE)
                     .subtype(selectedComponent.getServiceType())
                     .thumbnail(selectedComponent.getServiceThumbnail())
-                    .version(1L)
+                    .deploymentStatus(ComponentDeploymentStatus.DRAFT)
+                    .runningStatus(ComponentRunningStatus.DRAFT)
                     .deployStartTime(null)
                     .deployEndTime(null)
                     .build();
@@ -514,7 +560,6 @@ public class AdminService {
                     .orElseThrow(() -> new CustomException(ErrorCode.COMPONENT_NOT_FOUND, "컴포넌트 기본 설정을 찾을 수 없습니다."));
             ComponentSetting componentSetting = ComponentSetting.builder()
                     .componentId(component.getId())
-                    .version(component.getVersion())
                     .type(component.getSubtype())
                     .port(defaultSetting.getDefaultPort())
                     .value(defaultSetting.getValue())
@@ -532,15 +577,21 @@ public class AdminService {
         return new ComponentCreateResponse(
                 new ComponentCreateResponse.ComponentCreateInfo(
                         parentComponent.getId(),
-                        parentComponent.getVersion(),
                         parentComponent.getType(),
-                        parentComponent.getSubtype()
+                        parentComponent.getSubtype(),
+                        parentComponent.getName(),
+                        parentComponent.getThumbnail(),
+                        parentComponent.getDeploymentStatus(),
+                        parentComponent.getRunningStatus()
                 ),
                 new ComponentCreateResponse.ComponentCreateInfo(
                         component.getId(),
-                        component.getVersion(),
                         component.getType(),
-                        component.getSubtype()
+                        component.getSubtype(),
+                        component.getName(),
+                        component.getThumbnail(),
+                        component.getDeploymentStatus(),
+                        component.getRunningStatus()
                 )
         );
     }
@@ -564,7 +615,7 @@ public class AdminService {
                 connection.setToPort(request.getPort());
                 connectionRepository.save(connection);
             });
-            ComponentSetting componentSetting = componentSettingRepository.findFirstByComponentIdOrderByVersionDesc(component.getId())
+            ComponentSetting componentSetting = componentSettingRepository.findByComponentId(component.getId())
                     .orElseThrow(() -> new CustomException(ErrorCode.COMPONENT_NOT_FOUND, "컴포넌트 설정을 찾을 수 없습니다."));
             componentSetting.setPort(request.getPort());
             componentSetting.setValue(request.getSettingJson());
@@ -582,14 +633,17 @@ public class AdminService {
             .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
         // 프로젝트 및 컴포넌트가 실행 중인지 여부 확인 후 에러 처리 필요 (상태가 DRAFT, STOP이 아닌 경우 삭제 불가)
         try {
-            projectRepository.findByIdAndUserId(projectId, user.getId())
+            Project project = projectRepository.findByIdAndUserIdForUpdate(projectId, user.getId())
                     .orElseThrow(() -> new CustomException(ErrorCode.PROJECT_NOT_FOUND, "프로젝트를 찾을 수 없습니다."));
+            validateComponentCreation(project);
             componentRepository.findByIdAndProjectUserId(componentId, user.getId())
                     .orElseThrow(() -> new CustomException(ErrorCode.COMPONENT_NOT_FOUND, "컴포넌트를 찾을 수 없습니다."));
-            List<ComponentSetting> componentSettings = componentSettingRepository.findByComponentId(componentId);
-            componentSettings.forEach(componentSetting -> {
-                componentSettingRepository.delete(componentSetting);
-            });
+            ComponentSetting componentSettings = componentSettingRepository.findByComponentId(componentId)
+                    .orElseThrow(() -> new CustomException(ErrorCode.COMPONENT_SETTING_NOT_FOUND, "컴포넌트 설정을 찾을 수 없습니다."));
+            componentSettingRepository.delete(componentSettings);
+        } catch (CustomException e) {
+            log.error("Error occurred while deleting component settings", e);
+            throw e;
         } catch (Exception e) {
             log.error("Error occurred while deleting component settings", e);
             throw new CustomException(ErrorCode.INTERNAL_SERVER_ERROR, "컴포넌트 설정 삭제 중 오류가 발생했습니다.");
@@ -606,20 +660,22 @@ public class AdminService {
     }
 
     @Transactional
-    public ConnectionCreateResponse createConnection(Long projectId, Long sourceComponentId, ConnectionCreateRequest request, CustomUserDetails userDetails) {
-        User user = userDetails.getUser();
+    public ConnectionCreateResponse createConnection(Long projectId, Long sourceComponentId, ConnectionCreateRequest request, Long userId) {
+        User user = userRepository.findById(userId)
+            .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
         try {
-            Project project = projectRepository.findByIdAndUserId(projectId, user.getId())
+            Project project = projectRepository.findByIdAndUserIdForUpdate(projectId, user.getId())
                     .orElseThrow(() -> new CustomException(ErrorCode.PROJECT_NOT_FOUND, "프로젝트를 찾을 수 없습니다."));
+            validateComponentCreation(project);
             Component sourceComponent = componentRepository.findByIdAndProjectUserIdAndProjectId(sourceComponentId, user.getId(), project.getId())
                     .orElseThrow(() -> new CustomException(ErrorCode.COMPONENT_NOT_FOUND, "소스 컴포넌트를 찾을 수 없습니다."));
             Component targetComponent = componentRepository.findByIdAndProjectUserIdAndProjectId(request.getTargetComponentId(), user.getId(), project.getId())
                     .orElseThrow(() -> new CustomException(ErrorCode.COMPONENT_NOT_FOUND, "타겟 컴포넌트를 찾을 수 없습니다."));
 
             // Source Component, Target Component에 대해서 연결이 가능한지 여부 확인 필요 (예: Service -> Service, Resource 불가능, React -> Spring, Spring -> MySQL)
-            ComponentSetting sourceSetting = componentSettingRepository.findFirstByComponentIdOrderByVersionDesc(sourceComponent.getId())
+            ComponentSetting sourceSetting = componentSettingRepository.findByComponentId(sourceComponent.getId())
                     .orElseThrow(() -> new CustomException(ErrorCode.COMPONENT_SETTING_NOT_FOUND, "소스 컴포넌트 설정을 찾을 수 없습니다."));
-            ComponentSetting targetSetting = componentSettingRepository.findFirstByComponentIdOrderByVersionDesc(targetComponent.getId())
+            ComponentSetting targetSetting = componentSettingRepository.findByComponentId(targetComponent.getId())
                     .orElseThrow(() -> new CustomException(ErrorCode.COMPONENT_SETTING_NOT_FOUND, "타겟 컴포넌트 설정을 찾을 수 없습니다."));
             Connection connection = Connection.builder()
                     .fromComponent(sourceComponent)
@@ -647,8 +703,9 @@ public class AdminService {
     }
 
     @Transactional
-    public ConnectionDeleteResponse deleteConnection(Long projectId, Long sourceComponentId, Long connectionId, CustomUserDetails userDetails) {
-        User user = userDetails.getUser();
+    public ConnectionDeleteResponse deleteConnection(Long projectId, Long sourceComponentId, Long connectionId, Long userId) {
+        User user = userRepository.findById(userId)
+            .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
         try {
             Project project = projectRepository.findByIdAndUserId(projectId, user.getId())
                     .orElseThrow(() -> new CustomException(ErrorCode.PROJECT_NOT_FOUND, "프로젝트를 찾을 수 없습니다."));
@@ -665,6 +722,139 @@ public class AdminService {
             throw new CustomException(ErrorCode.INTERNAL_SERVER_ERROR, "연결 삭제 중 오류가 발생했습니다.");
         }
         return new ConnectionDeleteResponse("연결이 삭제되었습니다.");
+    }
+
+    /** ----------------- Deploy ----------------- */
+    @Transactional
+    public DeployStartResponse startDeployment(Long projectId, Long userId) {
+        User user = userRepository.findById(userId)
+                    .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
+
+        Project project = projectRepository.findByIdAndUserIdForUpdate(projectId, user.getId())
+                .orElseThrow(() -> new CustomException(ErrorCode.PROJECT_NOT_FOUND,"프로젝트를 찾을 수 없습니다."));
+
+        if (project.getDeploymentStatus() != ProjectDeploymentStatus.DRAFT &&
+            project.getDeploymentStatus() != ProjectDeploymentStatus.TERMINATED) {
+            throw new CustomException(ErrorCode.INVALID_PROJECT_STATUS, "프로젝트 상태가 올바르지 않습니다.");
+        }
+        List<Component> components = componentRepository.findByProjectIdForUpdate(project.getId());
+        LocalDateTime requestTime = LocalDateTime.now();
+        List<Deployment.ComponentInfo> componentInfos;
+
+        try {
+        componentInfos = componentRepository.findByProjectIdAndParent(project.getId(), null).stream()
+                .map(component -> new Deployment.ComponentInfo(
+                    component.getId(),
+                    component.getName(),
+                    component.getType(),
+                    component.getSubtype(),
+                    component.getChildren().stream()
+                        .map(child -> new Deployment.ComponentInfo(
+                            child.getId(),
+                            child.getName(),
+                            child.getType(),
+                            child.getSubtype(),
+                            null,
+                            connectionRepository.findByFromComponent(child).stream()
+                                                    .map(conn -> new Deployment.ConnectionInfo(
+                                                            conn.getId(),
+                                                            conn.getFromComponent().getId(),
+                                                            conn.getToComponent().getId(),
+                                                            conn.getFromPort(),
+                                                            conn.getToPort()
+                                                    )).collect(Collectors.toList()),
+                            componentSettingRepository.findByComponentId(child.getId())
+                                    .orElseThrow(() -> new CustomException(ErrorCode.COMPONENT_SETTING_NOT_FOUND, "컴포넌트 설정을 찾을 수 없습니다."))
+                                    .getValue()
+                        ))
+                        .collect(Collectors.toList()),
+                    connectionRepository.findByFromComponent(component).stream()
+                                    .map(conn -> new Deployment.ConnectionInfo(
+                                            conn.getId(),
+                                            conn.getFromComponent().getId(),
+                                            conn.getToComponent().getId(),
+                                            conn.getFromPort(),
+                                            conn.getToPort()
+                                    )).collect(Collectors.toList()),
+                    componentSettingRepository.findByComponentId(component.getId())
+                            .orElseThrow(() -> new CustomException(ErrorCode.COMPONENT_SETTING_NOT_FOUND, "컴포넌트 설정을 찾을 수 없습니다."))
+                            .getValue()
+                ))
+                .collect(Collectors.toList());
+        } catch (CustomException e) {
+            throw e;
+        } catch (Exception e) {
+            throw new CustomException(ErrorCode.INTERNAL_SERVER_ERROR, "배포 중 알 수 없는 오류가 발생했습니다.", e);
+        }
+        project.setRunningStatus(ProjectRunningStatus.UNKNOWN);
+        project.setDeploymentStatus(ProjectDeploymentStatus.QUEUED);
+        projectRepository.save(project);
+        components.forEach(component -> {
+            component.setDeploymentStatus(ComponentDeploymentStatus.QUEUED);
+            component.setRunningStatus(ComponentRunningStatus.UNKNOWN);
+        });
+        componentRepository.saveAll(components);
+
+        Deployment deployment = Deployment.builder()
+                .projectId(project.getId())
+                .createdAt(requestTime)
+                .components(componentInfos)
+                .deploymentId(UUID.randomUUID().toString())
+                .build();
+
+        deploymentRepository.save(deployment);
+        
+        String goRoleName = "go-role";
+        String wrappedToken = deployVaultService.issueWrappedSecretId(goRoleName, 60);
+        DeploymentMessage message = new DeploymentMessage("start", wrappedToken, deployment.getDeploymentId(), deployment);
+
+        String json;
+        try {
+            json = objectMapper.writeValueAsString(message);
+        } catch (com.fasterxml.jackson.core.JsonProcessingException e) {
+            throw new CustomException(ErrorCode.INTERNAL_SERVER_ERROR, "메시지 직렬화 중 오류가 발생했습니다.", e);
+        }
+        rabbitSendService.sendStart(json);
+
+        return new DeployStartResponse(requestTime, "Deployment started for project ID: " + projectId, deployment.getDeploymentId());
+    }
+
+    @Transactional
+    public DeployStopResponse stopDeployment(Long projectId, Long userId) {
+        User user = userRepository.findById(userId)
+                    .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
+
+        Project project = projectRepository.findByIdAndUserIdForUpdate(projectId, user.getId())
+                .orElseThrow(() -> new CustomException(ErrorCode.PROJECT_NOT_FOUND,"프로젝트를 찾을 수 없습니다."));
+        if (project.getDeploymentStatus() != ProjectDeploymentStatus.QUEUED &&
+            project.getDeploymentStatus() != ProjectDeploymentStatus.FAILED &&
+            project.getDeploymentStatus() != ProjectDeploymentStatus.DEPLOYING) {
+            throw new CustomException(ErrorCode.INVALID_PROJECT_STATUS, "프로젝트 상태가 올바르지 않습니다.");
+        }
+        Deployment deployment = deploymentRepository.findTopByProjectIdOrderByCreatedAtDesc(projectId)
+                .orElseThrow(() -> new CustomException(ErrorCode.DEPLOYMENT_NOT_FOUND, "진행 중인 배포를 찾을 수 없습니다."));
+        List<Component> components = componentRepository.findByProjectIdForUpdate(project.getId());
+
+        project.setDeploymentStatus(ProjectDeploymentStatus.STOP_REQUESTED);
+        components.forEach(component -> {
+            component.setDeploymentStatus(ComponentDeploymentStatus.STOP_REQUESTED);
+        });
+        LocalDateTime requestTime = LocalDateTime.now();
+
+        // Stop the deployment logic here
+        String goRoleName = "go-role";
+        String wrappedToken = deployVaultService.issueWrappedSecretId(goRoleName, 60);
+        DeploymentMessage message = new DeploymentMessage("stop", wrappedToken, deployment.getDeploymentId(), null);
+
+        String json;
+        try {
+            json = objectMapper.writeValueAsString(message);
+        } catch (com.fasterxml.jackson.core.JsonProcessingException e) {
+            throw new CustomException(ErrorCode.INTERNAL_SERVER_ERROR, "메시지 직렬화 중 오류가 발생했습니다.", e);
+        }
+        rabbitSendService.sendStop(json);
+
+        return new DeployStopResponse(requestTime, "Deployment stopped for project ID: " + projectId, deployment.getDeploymentId());
     }
 
     /** ----------------- Default Setting ----------------- */
@@ -724,47 +914,61 @@ public class AdminService {
     }
 
     /** ----------------- Connection ----------------- */
-    @Transactional
-    public Connection createConnection(Connection request) {
-        // fromComponent와 toComponent 검증
-        Component from = componentRepository.findById(request.getFromComponent().getId())
-                .orElseThrow(() -> new RuntimeException("From Component가 존재하지 않습니다."));
-        Component to = componentRepository.findById(request.getToComponent().getId())
-                .orElseThrow(() -> new RuntimeException("To Component가 존재하지 않습니다."));
+    // 특정 유저의 특정 프로젝트의 컴포넌트 연결을 전체 조회하는 기능
+    @Transactional(readOnly = true)
+    public List<Connection> getAllConnections(Long userId, Long projectId) {
+        User user = userRepository.findById(userId)
+            .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
 
-        Connection connection = Connection.builder()
-                .fromComponent(from)
-                .toComponent(to)
-                .type(request.getType())
-                .fromPort(request.getFromPort())
-                .toPort(request.getToPort())
-                .build();
+        Project project = projectRepository.findByIdAndUserId(projectId, user.getId())
+            .orElseThrow(() -> new CustomException(ErrorCode.PROJECT_NOT_FOUND, "프로젝트를 찾을 수 없습니다."));
 
-        return connectionRepository.save(connection);
+        List<Component> components = componentRepository.findByProjectId(projectId);
+
+        List<Connection> connections = new ArrayList<>();
+        // ConnectionRepository에서 findAllByProjectId(projectId)로 대체 가능
+        for (Component c : components) {
+            connections.addAll(connectionRepository.findByFromComponent(c));
+            connections.addAll(connectionRepository.findByToComponent(c));
+        }
+        return connections;
     }
 
     @Transactional(readOnly = true)
-    public List<Connection> getAllConnections() {
-        return connectionRepository.findAll();
-    }
+    public Connection getConnection(Long userId, Long projectId, Long connectionId) {
+        User user = userRepository.findById(userId)
+            .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
+        
+        Project project = projectRepository.findByIdAndUserIdForUpdate(projectId, user.getId())
+            .orElseThrow(() -> new CustomException(ErrorCode.PROJECT_NOT_FOUND, "프로젝트를 찾을 수 없습니다."));
 
-    @Transactional(readOnly = true)
-    public Connection getConnection(Long id) {
-        return connectionRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("해당 Connection이 존재하지 않습니다."));
+        return connectionRepository.findById(connectionId)
+                .filter(conn -> conn.getFromComponent().getProject().getId().equals(projectId) &&
+                                conn.getFromComponent().getProject().getUser().getId().equals(userId))
+                .orElseThrow(() -> new CustomException(ErrorCode.CONNECTION_NOT_FOUND));
     }
 
     @Transactional
-    public Connection updateConnection(Long id, Connection request) {
-        Connection existing = connectionRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("해당 Connection이 존재하지 않습니다."));
+    public Connection updateConnection(Long userId, Long projectId, Long connectionId, Connection request) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
 
-        // from/to Component 검증
+        Project project = projectRepository.findByIdAndUserId(projectId, user.getId())
+                .orElseThrow(() -> new CustomException(ErrorCode.PROJECT_NOT_FOUND, "프로젝트를 찾을 수 없습니다."));
+
+        Connection existing = connectionRepository.findById(connectionId)
+                .filter(conn -> conn.getFromComponent().getProject().getId().equals(projectId))
+                .orElseThrow(() -> new CustomException(ErrorCode.CONNECTION_NOT_FOUND));
+
         Component from = componentRepository.findById(request.getFromComponent().getId())
-                .orElseThrow(() -> new RuntimeException("From Component가 존재하지 않습니다."));
-        Component to = componentRepository.findById(request.getToComponent().getId())
-                .orElseThrow(() -> new RuntimeException("To Component가 존재하지 않습니다."));
+                .filter(c -> c.getProject().getId().equals(projectId))
+                .orElseThrow(() -> new CustomException(ErrorCode.COMPONENT_NOT_FOUND, "From Component가 유효하지 않습니다."));
 
+        Component to = componentRepository.findById(request.getToComponent().getId())
+                .filter(c -> c.getProject().getId().equals(projectId))
+                .orElseThrow(() -> new CustomException(ErrorCode.COMPONENT_NOT_FOUND, "To Component가 유효하지 않습니다."));
+
+        // 수정
         existing.setFromComponent(from);
         existing.setToComponent(to);
         existing.setType(request.getType());
@@ -774,11 +978,5 @@ public class AdminService {
         return connectionRepository.save(existing);
     }
 
-    @Transactional
-    public DefaultResponse deleteConnection(Long id) {
-        Connection existing = connectionRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("해당 Connection이 존재하지 않습니다."));
-        connectionRepository.delete(existing);
-        return new DefaultResponse("Connection이 삭제되었습니다.");
-    }
+
 }

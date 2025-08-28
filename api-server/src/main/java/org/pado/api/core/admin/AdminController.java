@@ -5,6 +5,7 @@ import java.util.List;
 
 import org.pado.api.core.admin.dto.request.AdminSignupRequest;
 import org.pado.api.core.admin.dto.response.AdminSignupResponse;
+import org.pado.api.core.security.userdetails.CustomUserDetails;
 import org.pado.api.domain.component.ComponentDefaultSetting;
 import org.pado.api.domain.component.ComponentList;
 import org.pado.api.domain.connection.Connection;
@@ -27,6 +28,8 @@ import org.pado.api.dto.response.CredentialDeleteResponse;
 import org.pado.api.dto.response.CredentialDetailResponse;
 import org.pado.api.dto.response.CredentialResponse;
 import org.pado.api.dto.response.DefaultResponse;
+import org.pado.api.dto.response.DeployStartResponse;
+import org.pado.api.dto.response.DeployStopResponse;
 import org.pado.api.dto.response.ProjectCreateResponse;
 import org.pado.api.dto.response.ProjectDetailResponse;
 import org.pado.api.dto.response.ProjectListResponse;
@@ -176,6 +179,31 @@ public class AdminController {
         return adminService.deleteComponent(projectId, componentId, userId);
     }
 
+    @Operation(summary = "컴포넌트 연결", description = "컴포넌트 간 연결을 수립합니다.")
+    @PostMapping("/{userId}/projects/{projectId}/components/{componentId}/connections")
+    public ConnectionCreateResponse createConnection(@PathVariable Long projectId, @PathVariable Long componentId, @RequestBody @Valid ConnectionCreateRequest request, @PathVariable Long userId) {
+        return adminService.createConnection(projectId, componentId, request, userId);
+    }
+
+    @Operation(summary = "컴포넌트 연결 삭제", description = "컴포넌트 간 연결을 삭제합니다.")
+    @DeleteMapping("/{userId}/projects/{projectId}/components/{sourceComponentId}/connections/{connectionId}")
+    public ConnectionDeleteResponse deleteConnection(@PathVariable Long projectId, @PathVariable Long sourceComponentId, @PathVariable Long connectionId, @PathVariable Long userId) {
+        return adminService.deleteConnection(projectId, sourceComponentId, connectionId, userId);
+    }
+
+    /** ----------------- Deploy ----------------- */
+    @Operation(summary = "프로젝트 배포", description = "새로운 프로젝트를 배포합니다.")
+    @PostMapping("/{userId}/projects/{projectId}/deploy/start")
+    public DeployStartResponse startProjectDeployment(@PathVariable Long projectId, @PathVariable Long userId) {
+        return adminService.startDeployment(projectId, userId);
+    }
+
+    @Operation(summary = "프로젝트 배포 중지", description = "진행 중인 프로젝트 배포를 중지합니다.")
+    @PostMapping("/{userId}/projects/{projectId}/deploy/stop")
+    public DeployStopResponse stopProjectDeployment(@PathVariable Long projectId, @PathVariable Long userId) {
+        return adminService.stopDeployment(projectId, userId);
+    }
+
     /** ----------------- Component Default Setting ----------------- */
     @Operation(summary = "기본 설정 생성", description = "새로운 컴포넌트 기본 설정을 생성합니다.")
     @PostMapping("/components/default-settings")
@@ -183,13 +211,13 @@ public class AdminController {
         return adminService.createDefaultSetting(request);
     }
 
-    @Operation(summary = "기본 설정 전체 조회", description = "모든 컴포넌트 기본 설정을 조회합니다.")
+    @Operation(summary = "기본 설정 목록 조회", description = "모든 컴포넌트 기본 설정을 조회합니다.")
     @GetMapping("/components/default-settings")
     public List<ComponentDefaultSetting> getAllDefaultSettings() {
         return adminService.getAllDefaultSettings();
     }
 
-    @Operation(summary = "기본 설정 단건 조회", description = "ID를 기반으로 특정 컴포넌트 기본 설정을 조회합니다.")
+    @Operation(summary = "기본 설정 상세 조회", description = "ID를 기반으로 특정 컴포넌트 기본 설정을 조회합니다.")
     @GetMapping("/components/default-settings/{id}")
     public ComponentDefaultSetting getDefaultSetting(@PathVariable String id) {
         return adminService.getDefaultSetting(id);
@@ -234,36 +262,24 @@ public class AdminController {
 
 
     /** ----------------- Connection ----------------- */
-    @Operation(summary = "Connection 생성", description = "새로운 Connection을 생성합니다.")
-    @PostMapping("/connections")
-    public Connection createConnection(@RequestBody Connection request) {
-        return adminService.createConnection(request);
+    @Operation(summary = "Connection 목록 조회", description = "특정 유저의 프로젝트 내 모든 Connection을 조회합니다.")
+    @GetMapping("/{userId}/projects/{projectId}/connections")
+    public List<Connection> getAllConnections(@PathVariable Long userId, @PathVariable Long projectId) {
+        return adminService.getAllConnections(userId, projectId);
     }
 
-    @Operation(summary = "모든 Connection 조회", description = "DB에 저장된 모든 Connection을 조회합니다.")
-    @GetMapping("/connections")
-    public List<Connection> getAllConnections() {
-        return adminService.getAllConnections();
+    @Operation(summary = "Connection 상세 조회", description = "특정 유저의 특정 Connection을 조회합니다.")
+    @GetMapping("/{userId}/projects/{projectId}/connections/{connectionId}")
+    public Connection getConnection(@PathVariable Long userId, @PathVariable Long projectId, @PathVariable Long connectionId) {
+        return adminService.getConnection(userId, projectId, connectionId);
     }
 
-    @Operation(summary = "Connection 상세 조회", description = "ID로 특정 Connection을 조회합니다.")
-    @GetMapping("/connections/{id}")
-    public Connection getConnection(@PathVariable Long id) {
-        return adminService.getConnection(id);
+    @Operation(summary = "Connection 수정", description = "특정 유저의 특정 Connection을 수정합니다.")
+    @PutMapping("/{userId}/projects/{projectId}/connections/{connectionId}")
+    public Connection updateConnection(@PathVariable Long userId, @PathVariable Long projectId,
+                                    @PathVariable Long connectionId, @RequestBody Connection request) {
+        return adminService.updateConnection(userId, projectId, connectionId, request);
     }
-
-    @Operation(summary = "Connection 수정", description = "ID로 특정 Connection을 수정합니다.")
-    @PutMapping("/connections/{id}")
-    public Connection updateConnection(@PathVariable Long id, @RequestBody Connection request) {
-        return adminService.updateConnection(id, request);
-    }
-
-    @Operation(summary = "Connection 삭제", description = "ID로 특정 Connection을 삭제합니다.")
-    @DeleteMapping("/connections/{id}")
-    public DefaultResponse deleteConnection(@PathVariable Long id) {
-        return adminService.deleteConnection(id);
-    }
-
 
     /** ----------------- 관리자 계정 사용 ----------------- */
     // private final AuthService authService;
