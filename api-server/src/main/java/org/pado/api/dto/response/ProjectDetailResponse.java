@@ -3,11 +3,14 @@ package org.pado.api.dto.response;
 import java.time.LocalDateTime;
 import java.util.List;
 
-import org.pado.api.domain.common.Status;
 import org.pado.api.domain.component.ComponentType;
+import org.pado.api.domain.project.ProjectDeploymentStatus;
+import org.pado.api.domain.project.ProjectRunningStatus;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 
+import org.pado.api.domain.component.ComponentDeploymentStatus;
+import org.pado.api.domain.component.ComponentRunningStatus;
 import org.pado.api.domain.component.ComponentSubType;
 
 
@@ -32,7 +35,10 @@ public class ProjectDetailResponse {
     private String thumbnail;
 
     @Schema(description = "프로젝트 상태", example = "ACTIVE")
-    private Status status;
+    private ProjectDeploymentStatus deploymentStatus;
+
+    @Schema(description = "프로젝트 실행 상태", example = "DRAFT")
+    private ProjectRunningStatus runningStatus;
 
     @Schema(description = "생성 시간", example = "2023-10-01T12:00:00Z")
     private LocalDateTime createdAt;
@@ -71,9 +77,6 @@ public class ProjectDetailResponse {
         @Schema(description = "컴포넌트 ID", example = "1")
         private Long id;
 
-        @Schema(description = "컴포넌트 버전", example = "1")
-        private Long version;
-
         @Schema(description = "컴포넌트 이름", example = "MyComponent")
         private String name;
 
@@ -85,6 +88,12 @@ public class ProjectDetailResponse {
 
         @Schema(description = "컴포넌트 썸네일 URL", example = "https://example.com/component-thumbnail.jpg")
         private String thumbnail;
+
+        @Schema(description = "컴포넌트 상태", example = "ACTIVE")
+        private ComponentDeploymentStatus deploymentStatus;
+
+        @Schema(description = "컴포넌트 실행 상태", example = "DRAFT")
+        private ComponentRunningStatus runningStatus;
 
         @Schema(description = "배포 시작 시간", example = "2023-10-01T12:00:00Z")
         private LocalDateTime deployStartTime;
