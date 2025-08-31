@@ -697,7 +697,7 @@ public class AdminService {
 
             return new ConnectionCreateResponse(
                             connection.getId(), 
-                            connection.getType().toString(),
+                            connection.getType(),
                             connection.getToComponent().getId(),
                             connection.getFromComponent().getId(),
                             connection.getFromPort(),
