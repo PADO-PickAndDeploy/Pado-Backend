@@ -4,10 +4,13 @@ import org.pado.api.service.ComponentService;
 import org.pado.api.core.security.userdetails.CustomUserDetails;
 import org.pado.api.dto.request.ComponentCreateRequest;
 import org.pado.api.dto.request.ComponentSettingRequest;
+import org.pado.api.dto.request.ConnectionCreateRequest;
 import org.pado.api.dto.response.ComponentCreateResponse;
 import org.pado.api.dto.response.ComponentDeleteResponse;
 import org.pado.api.dto.response.ComponentListResponse;
 import org.pado.api.dto.response.ComponentSettingResponse;
+import org.pado.api.dto.response.ConnectionCreateResponse;
+import org.pado.api.dto.response.ConnectionDeleteResponse;
 import org.pado.api.dto.response.DefaultResponse;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -169,7 +172,7 @@ public class ComponentController {
             description = "컴포넌트 삭제 성공",
             content = @Content(
                 mediaType = "application/json",
-                schema = @Schema(implementation = ComponentSettingResponse.class)
+                schema = @Schema(implementation = ComponentDeleteResponse.class)
             )
         ),
         @ApiResponse(
@@ -208,5 +211,101 @@ public class ComponentController {
     @DeleteMapping("/projects/{projectId}/components/{componentId}")
     public ResponseEntity<ComponentDeleteResponse> deleteComponent(@PathVariable Long projectId, @PathVariable Long componentId, @AuthenticationPrincipal CustomUserDetails userDetails) {
         return ResponseEntity.ok(componentService.deleteComponent(projectId, componentId, userDetails));
+    }
+
+    @Operation(summary = "컴포넌트 연결", description = "컴포넌트 간 연결을 수립합니다.")
+    @ApiResponses({
+        @ApiResponse(
+            responseCode = "200",
+            description = "컴포넌트 연결 성공",
+            content = @Content(
+                mediaType = "application/json",
+                schema = @Schema(implementation = ConnectionCreateResponse.class)
+            )
+        ),
+        @ApiResponse(
+            responseCode = "400",
+            description = "잘못된 요청",
+            content = @Content(
+                mediaType = "application/json",
+                schema = @Schema(implementation = DefaultResponse.class)
+            )
+        ),
+        @ApiResponse(
+            responseCode = "401",
+            description = "인증 실패",
+            content = @Content(
+                mediaType = "application/json",
+                schema = @Schema(implementation = DefaultResponse.class)
+            )
+        ),
+        @ApiResponse(
+            responseCode = "404",
+            description = "프로젝트 또는 컴포넌트가 존재하지 않음",
+            content = @Content(
+                mediaType = "application/json",
+                schema = @Schema(implementation = DefaultResponse.class)
+            )
+        ),
+        @ApiResponse(
+            responseCode = "500",
+            description = "서버 내부 오류",
+            content = @Content(
+                mediaType = "application/json",
+                schema = @Schema(implementation = DefaultResponse.class)
+            )
+        )
+    })
+    @PostMapping("/projects/{projectId}/components/{componentId}/connections")
+    public ResponseEntity<ConnectionCreateResponse> createConnection(@PathVariable Long projectId, @PathVariable Long componentId, @RequestBody @Valid ConnectionCreateRequest request, @AuthenticationPrincipal CustomUserDetails userDetails) {
+        return ResponseEntity.ok(componentService.createConnection(projectId, componentId, request, userDetails));
+    }
+
+    @Operation(summary = "컴포넌트 연결 삭제", description = "컴포넌트 간 연결을 삭제합니다.")
+    @ApiResponses({
+        @ApiResponse(
+            responseCode = "200",
+            description = "컴포넌트 연결 삭제 성공",
+            content = @Content(
+                mediaType = "application/json",
+                schema = @Schema(implementation = ConnectionDeleteResponse.class)
+            )
+        ),
+        @ApiResponse(
+            responseCode = "400",
+            description = "잘못된 요청",
+            content = @Content(
+                mediaType = "application/json",
+                schema = @Schema(implementation = DefaultResponse.class)
+            )
+        ),
+        @ApiResponse(
+            responseCode = "401",
+            description = "인증 실패",
+            content = @Content(
+                mediaType = "application/json",
+                schema = @Schema(implementation = DefaultResponse.class)
+            )
+        ),
+        @ApiResponse(
+            responseCode = "404",
+            description = "프로젝트 또는 컴포넌트가 존재하지 않음",
+            content = @Content(
+                mediaType = "application/json",
+                schema = @Schema(implementation = DefaultResponse.class)
+            )
+        ),
+        @ApiResponse(
+            responseCode = "500",
+            description = "서버 내부 오류",
+            content = @Content(
+                mediaType = "application/json",
+                schema = @Schema(implementation = DefaultResponse.class)
+            )
+        )
+    })
+    @DeleteMapping("/projects/{projectId}/components/{sourceComponentId}/connections/{connectionId}")
+    public ResponseEntity<ConnectionDeleteResponse> deleteConnection(@PathVariable Long projectId, @PathVariable Long sourceComponentId, @PathVariable Long connectionId, @AuthenticationPrincipal CustomUserDetails userDetails) {
+        return ResponseEntity.ok(componentService.deleteConnection(projectId, sourceComponentId, connectionId, userDetails));
     }
 }

@@ -58,11 +58,12 @@ public class Component extends BaseTimeEntity {
     @OneToMany(mappedBy = "toComponent", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<Connection> toConnections = new ArrayList<>();
 
-    private Long version;
     private String name;
     private ComponentType type;
     private ComponentSubType subtype;
     private String thumbnail;
+    private ComponentDeploymentStatus deploymentStatus;
+    private ComponentRunningStatus runningStatus;
     private LocalDateTime deployStartTime;
     private LocalDateTime deployEndTime;
 }

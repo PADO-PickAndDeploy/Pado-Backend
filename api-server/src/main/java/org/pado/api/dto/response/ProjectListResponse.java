@@ -1,6 +1,7 @@
 package org.pado.api.dto.response;
 
-import org.pado.api.domain.common.Status;
+import org.pado.api.domain.project.ProjectDeploymentStatus;
+import org.pado.api.domain.project.ProjectRunningStatus;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 
@@ -32,7 +33,10 @@ public class ProjectListResponse {
         private String description;
 
         @Schema(description = "프로젝트 상태", example = "DRAFT")
-        private Status status;
+        private ProjectDeploymentStatus deploymentStatus;
+
+        @Schema(description = "프로젝트 실행 상태", example = "DRAFT")
+        private ProjectRunningStatus runningStatus;
 
         @Schema(description = "프로젝트 썸네일 URL", example = "https://example.com/thumbnail.jpg")
         private String thumbnail;

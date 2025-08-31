@@ -64,6 +64,7 @@ public class SecurityConfig {
                     "/webjars/**"
                 ).permitAll()
                 
+                .requestMatchers("/admin-test/**").permitAll() // 개발/Swagger 전용 (JWT 없이 접근 가능)
                 // TODO : 관리자 전용 API
                 .requestMatchers("/admin/**").hasRole("ADMIN")
                 

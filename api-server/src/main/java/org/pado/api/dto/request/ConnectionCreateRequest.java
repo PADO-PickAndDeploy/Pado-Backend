@@ -11,14 +11,13 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 @AllArgsConstructor
 @Getter
-@Schema(description = "컴포넌트 설정 요청 DTO")
-public class ComponentSettingRequest {
+public class ConnectionCreateRequest {
     @NotNull
-    @Positive   
-    @Schema(description = "포트 번호", example = "8080")
-    private Long port;
+    @Positive
+    @Schema(description = "대상 컴포넌트 ID", example = "2")
+    private Long targetComponentId;
 
-    @NotBlank(message = "설정 JSON은 필수입니다.")
-    @Schema(description = "설정 JSON", example = "{\"key\":\"value\"}")
-    private String settingJson;
+    @NotBlank(message = "연결 유형은 필수입니다.")
+    @Schema(description = "연결 유형", example = "TCP")
+    private String connectionType; // e.g., "TCP"(Default), "UDP"
 }
