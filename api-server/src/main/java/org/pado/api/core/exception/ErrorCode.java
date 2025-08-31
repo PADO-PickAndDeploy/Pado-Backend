@@ -31,12 +31,15 @@ public enum ErrorCode {
     // ===== 크리덴셜 관련 에러 =====
     CREDENTIAL_NOT_FOUND("CR001", "크리덴셜을 찾을 수 없습니다.", HttpStatus.NOT_FOUND),
     CREDENTIAL_ACCESS_DENIED("CR002", "크리덴셜에 접근할 권한이 없습니다.", HttpStatus.FORBIDDEN),
+    CREDENTIAL_NAME_DUPLICATE("CR003", "이미 존재하는 크리덴셜 이름입니다.", HttpStatus.CONFLICT),
+    CREDENTIAL_TYPE_INVALID("CR004", "유효하지 않은 크리덴셜 타입입니다.", HttpStatus.BAD_REQUEST),
 
     // ===== 프로젝트 관련 에러 =====
     PROJECT_NOT_FOUND("P001", "프로젝트를 찾을 수 없습니다.", HttpStatus.NOT_FOUND),
     PROJECT_ACCESS_DENIED("P002", "프로젝트에 대한 접근 권한이 없습니다.", HttpStatus.FORBIDDEN),
     PROJECT_ALREADY_EXISTS("P003", "이미 존재하는 프로젝트입니다.", HttpStatus.CONFLICT),
     PROJECT_DELETION_NOT_ALLOWED("P004", "RUNNING 상태의 프로젝트는 삭제할 수 없습니다.", HttpStatus.BAD_REQUEST),
+    INVALID_PROJECT_STATUS("P005", "프로젝트 상태가 올바르지 않습니다.", HttpStatus.BAD_REQUEST),
 
     // ===== 컴포넌트 관련 에러 =====
     COMPONENT_PROJECT_MISMATCH("CP001", "해당 컴포넌트는 요청한 프로젝트에 속해 있지 않습니다.", HttpStatus.BAD_REQUEST),
@@ -46,6 +49,9 @@ public enum ErrorCode {
     COMPONENT_STATE_INVALID("CP005", "컴포넌트 상태가 올바르지 않습니다.", HttpStatus.BAD_REQUEST),
     COMPONENT_SETTING_NOT_FOUND("CP006", "컴포넌트 설정을 찾을 수 없습니다.", HttpStatus.NOT_FOUND),
     CONNECTION_NOT_FOUND("CP007", "연결을 찾을 수 없습니다.", HttpStatus.NOT_FOUND),
+
+    // ===== 배포 관련 에러 =====
+    DEPLOYMENT_NOT_FOUND("D001", "배포를 찾을 수 없습니다.", HttpStatus.NOT_FOUND),
 
     // ===== Vault 관련 에러 =====
     VAULT_OPERATION_FAILED("V001", "Vault 작업이 실패했습니다.", HttpStatus.INTERNAL_SERVER_ERROR),

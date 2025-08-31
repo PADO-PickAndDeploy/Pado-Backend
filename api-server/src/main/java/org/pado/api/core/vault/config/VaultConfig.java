@@ -1,13 +1,23 @@
 package org.pado.api.core.vault.config;
 
+import java.time.Duration;
 import java.util.Optional;
 
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.vault.authentication.TokenAuthentication;
+import org.springframework.vault.authentication.AppRoleAuthentication;
+import org.springframework.vault.authentication.AppRoleAuthenticationOptions;
+import org.springframework.vault.authentication.AppRoleAuthenticationOptions.RoleId;
+import org.springframework.vault.authentication.AppRoleAuthenticationOptions.SecretId;
+import org.springframework.vault.client.VaultClients;
 import org.springframework.vault.client.VaultEndpoint;
 import org.springframework.vault.core.VaultTemplate;
+import org.springframework.vault.support.ClientOptions;
+import org.springframework.vault.support.SslConfiguration;
+import org.springframework.web.client.RestOperations;
+import org.springframework.web.client.RestTemplate;
+import org.springframework.web.util.DefaultUriBuilderFactory;
 import org.springframework.beans.factory.annotation.Value;
 
 import lombok.RequiredArgsConstructor;
@@ -21,8 +31,11 @@ public class VaultConfig {
     @Value("${spring.cloud.vault.uri:}")
     private String vaultUri;
     
-    @Value("${spring.cloud.vault.token:}")
-    private String vaultToken;
+    @Value("${spring.cloud.vault.app-role.role-id:}")
+    private String roleId;
+
+    @Value("${spring.cloud.vault.app-role.secret-id:}")
+    private String secretId;
 
     /**
      * VaultTemplate 빈 생성 (Vault 활성화시에만)
@@ -33,11 +46,20 @@ public class VaultConfig {
         log.info("Creating VaultTemplate with URI: {}", maskUri(vaultUri));
         
         try {
-            VaultEndpoint endpoint = VaultEndpoint.from(java.net.URI.create(vaultUri));
-            TokenAuthentication auth = new TokenAuthentication(vaultToken);
+            VaultEndpoint vaultEndpoint = VaultEndpoint.from(java.net.URI.create(vaultUri));
+
+            AppRoleAuthenticationOptions options = AppRoleAuthenticationOptions.builder()
+                    .roleId(RoleId.provided(roleId))
+                    .secretId(SecretId.provided(secretId))
+                    .build();
             
-            VaultTemplate template = new VaultTemplate(endpoint, auth);
-            log.info("VaultTemplate created successfully");
+                    
+            RestTemplate restTemplate = new RestTemplate();
+            restTemplate.setUriTemplateHandler(new DefaultUriBuilderFactory(vaultUri + "/v1/"));
+            AppRoleAuthentication auth = new AppRoleAuthentication(options, restTemplate);
+            
+            VaultTemplate template = new VaultTemplate(vaultEndpoint, auth);
+            log.info("VaultTemplate created successfully with AppRole authentication");
             return template;
             
         } catch (Exception e) {
@@ -45,6 +67,7 @@ public class VaultConfig {
             throw new RuntimeException("Vault configuration failed", e);
         }
     }
+
     
     /**
      * Optional<VaultTemplate> 빈 생성 

@@ -7,6 +7,11 @@ import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Table;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
 import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
@@ -14,9 +19,11 @@ import jakarta.persistence.FetchType;
 
 @Entity
 @Table(name = "credentials")
-@lombok.Getter
-@lombok.Setter
-@lombok.NoArgsConstructor
+@Getter
+@Setter
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
 public class Credential extends BaseTimeEntity{
 
     @Id
@@ -27,11 +34,6 @@ public class Credential extends BaseTimeEntity{
     @JoinColumn(name = "uid")
     private User user;
     private String name;
-    private String type;
+    private CredentialType type;
     private String description;
-    public String getCredentialType() {
-        // TODO Auto-generated method stub
-        // throw new UnsupportedOperationException("Unimplemented method 'getCredentialType'");
-        return this.type;
-    }
 }
