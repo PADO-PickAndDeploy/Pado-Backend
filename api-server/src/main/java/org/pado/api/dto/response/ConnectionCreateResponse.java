@@ -1,5 +1,7 @@
 package org.pado.api.dto.response;
 
+import org.pado.api.domain.connection.ConnectionType;
+
 import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
@@ -13,7 +15,7 @@ public class ConnectionCreateResponse {
     private Long connectionId;
 
     @Schema(description = "연결 유형", example = "TCP")
-    private String connectionType;
+    private ConnectionType connectionType;
 
     @Schema(description = "대상 컴포넌트 ID", example = "2")
     private Long targetComponentId;
