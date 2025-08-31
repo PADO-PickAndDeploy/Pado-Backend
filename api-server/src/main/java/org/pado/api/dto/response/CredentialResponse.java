@@ -1,5 +1,7 @@
 package org.pado.api.dto.response;
 
+import org.pado.api.domain.credential.CredentialType;
+
 import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
@@ -16,7 +18,7 @@ public class CredentialResponse {
     private String name;
 
     @Schema(description = "크레덴셜 타입", example = "AWS")
-    private String type;
+    private CredentialType type;
 
     @Schema(description = "크레덴셜 설명", example = "IAM 역할을 위한 인증키입니다.")
     private String description;
