@@ -5,7 +5,7 @@ on:
     branches: [ "dev" ]
 
 jobs:
-  build-and-deploy:
+  build-test:
     runs-on: ubuntu-latest
     env:
       # MySQL
@@ -20,10 +20,17 @@ jobs:
 
       # Vault (dev)
 
-      VAULT_ADDR: http://127.0.0.1:8200
-      VAULT_TOKEN: root
+      VAULT_URI: http://127.0.0.1:8200
+      VAULT_ROLE_ID: "test-role-id"
+      VAULT_SECRET_ID: "test-secret-id"
       
       JWT_SECRET: test-secret
+
+      PADO_RABBITMQ_HOST: 127.0.0.1
+      RABBITMQ_USERNAME: test
+      RABBITMQ_PASSWORD: testpw
+      RABBITMQ_VHOST: "/"   # spring.rabbitmq.virtual-host 설정에 매핑됨
+      
     services:
       mysql:
         image: mysql:8.0
@@ -68,6 +75,19 @@ jobs:
           --cap-add=IPC_LOCK
           --health-cmd="wget -qO- http://127.0.0.1:8200/v1/sys/health || exit 1"
           --health-interval=10s --health-timeout=5s --health-retries=20
+
+      rabbitmq:
+        image: rabbitmq:3.13-management
+        ports:
+          - "5672:5672"   # AMQP
+          - "15672:15672" # 관리 콘솔
+        env:
+          RABBITMQ_DEFAULT_USER: test
+          RABBITMQ_DEFAULT_PASS: testpw
+          RABBITMQ_DEFAULT_VHOST: "/"
+        options: >-
+          --health-cmd="rabbitmq-diagnostics -q ping"
+          --health-interval=10s --health-timeout=5s --health-retries=10
     steps:
     - name: Checkout Source
       uses: actions/checkout@v4
@@ -98,9 +118,37 @@ jobs:
         done
         # Vault
         for i in {1..30}; do
-          curl -s $VAULT_ADDR/v1/sys/health >/dev/null && echo "Vault up" && break || sleep 2
+          curl -s $VAULT_URI/v1/sys/health >/dev/null && echo "Vault up" && break || sleep 2
+        done
+        # RabbitMQ
+        for i in {1..30}; do
+          nc -z 127.0.0.1 5672 && echo "RabbitMQ up" && break || sleep 2
         done
     
+    - name: Setup Vault App-Role for CI
+      run: |
+        # Vault CLI 설치
+        curl -fsSL https://releases.hashicorp.com/vault/1.15.0/vault_1.15.0_linux_amd64.zip -o vault.zip
+        unzip vault.zip
+        sudo mv vault /usr/local/bin/
+          
+        export VAULT_ADDR=http://127.0.0.1:8200
+        export VAULT_TOKEN=root
+          
+        # App-Role 설정
+        vault auth enable approle || true
+        vault policy write ci-policy - <<EOF
+        path "secret/*" { 
+          capabilities = ["create", "read", "update", "delete", "list"] 
+        }
+        EOF
+        vault write auth/approle/role/ci-role token_policies="ci-policy" token_ttl=1h
+          
+        # 실제 값으로 환경변수 덮어쓰기
+        echo "VAULT_ROLE_ID=$(vault read -field=role_id auth/approle/role/ci-role/role-id)" >> $GITHUB_ENV
+        echo "VAULT_SECRET_ID=$(vault write -field=secret_id -f auth/approle/role/ci-role/secret-id)" >> $GITHUB_ENV
+  
+
     - name: Run Tests and Build (in api-server)
       working-directory: api-server
       run: ./gradlew clean test build -Dspring.profiles.active=ci --info --stacktrace

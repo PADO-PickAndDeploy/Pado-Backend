@@ -8,6 +8,11 @@ jwt:
 app:
   cors:
     allowed-origins: ${APP_CORS_ALLOWED_ORIGINS:http://localhost:3000,http://localhost:5173}
+  rabbit:
+    exchange: pado.direct
+    queue: pado.q
+    routing-key-start: deploy.start
+    routing-key-stop: deploy.stop
 ---
 spring:
   config:
@@ -36,10 +41,13 @@ spring:
 
   cloud:
     vault:
-      uri: http://localhost:8200
-      token: root
-      scheme: http
-      authentication: TOKEN
+      fail-fast: true
+      enabled: true
+      authentication: APPROLE
+      app-role:
+        role-id: ${VAULT_ROLE_ID}
+        secret-id: ${VAULT_SECRET_ID}
+      uri: ${VAULT_URI}
       connection-timeout: 5000
       read-timeout: 15000
       config:
@@ -49,8 +57,13 @@ spring:
       kv:
         enabled: true
         backend: secret
-        default-context: application
-        profile-separator: '-'
+  
+  rabbitmq:
+    host: ${PADO_RABBITMQ_HOST}
+    port: 5672
+    username: ${RABBITMQ_USERNAME}
+    password: ${RABBITMQ_PASSWORD}
+    virtual-host: /
 ---
 server:
   forward-headers-strategy: framework
@@ -85,21 +98,24 @@ spring:
   
   cloud:
     vault:
-      uri: http://${PADO_VAULT_DEV_URL}:8200
-      token: ${VAULT_DEV_TOKEN}
-      scheme: http
-      authentication: TOKEN
+      fail-fast: true
+      authentication: APPROLE
+      enabled: true
+      app-role:
+        role-id: ${VAULT_ROLE_ID}
+        secret-id: ${VAULT_SECRET_ID}
+      uri: ${VAULT_URI}
       connection-timeout: 5000
       read-timeout: 15000
       config:
         lifecycle:
           enabled: false
-
-      kv:
-        enabled: true
-        backend: secret
-        default-context: application
-        profile-separator: '-'
+  rabbitmq:
+    host: ${PADO_RABBITMQ_HOST}
+    port: 5672
+    username: ${PADO_ID}
+    password: ${PADO_PW}
+    virtual-host: pado
 
 ---
 spring:
@@ -131,21 +147,23 @@ spring:
       uri: mongodb://${PADO_ID}:${PADO_PW}@localhost:27017/pado
     redis:
       url: redis://${PADO_ID}:${PADO_PW}@localhost:6379/0
-  
   cloud:
     vault:
+      fail-fast: true
+      enabled: true
+      authentication: APPROLE
+      app-role:
+        role-id: ${VAULT_ROLE_ID}
+        secret-id: ${VAULT_SECRET_ID}
       uri: http://localhost:8200
-      token: ${VAULT_DEV_TOKEN}
-      scheme: http
-      authentication: TOKEN
       connection-timeout: 5000
       read-timeout: 15000
       config:
         lifecycle:
           enabled: false
-
-      kv:
-        enabled: true
-        backend: secret
-        default-context: application
-        profile-separator: '-'
+  rabbitmq:
+    host: localhost
+    port: 5672
+    username: ${PADO_ID}
+    password: ${PADO_PW}
+    virtual-host: pado
