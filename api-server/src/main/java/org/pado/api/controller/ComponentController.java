@@ -169,7 +169,7 @@ public class ComponentController {
             description = "컴포넌트 삭제 성공",
             content = @Content(
                 mediaType = "application/json",
-                schema = @Schema(implementation = ComponentSettingResponse.class)
+                schema = @Schema(implementation = ComponentDeleteResponse.class)
             )
         ),
         @ApiResponse(
