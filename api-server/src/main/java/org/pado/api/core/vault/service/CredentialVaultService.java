@@ -5,6 +5,7 @@ import java.util.Map;
 import org.pado.api.core.exception.CustomException;
 import org.pado.api.core.exception.ErrorCode;
 import org.pado.api.domain.credential.Credential;
+import org.pado.api.domain.credential.CredentialType;
 import org.pado.api.domain.user.User;
 import org.springframework.stereotype.Service;
 
@@ -99,11 +100,11 @@ public class CredentialVaultService {
     /**
      * Vault 경로 생성
      */
-    private String buildVaultPath(Long userId, String credentialType, Long credentialId) {
+    private String buildVaultPath(Long userId, CredentialType credentialType, Long credentialId) {
         return String.format("%s/%d/%s/%d",
             VAULT_BASE_PATH,
             userId,
-            credentialType,
+            credentialType.name(),
             credentialId
         );
     }
@@ -120,8 +121,8 @@ public class CredentialVaultService {
             throw new CustomException(ErrorCode.INVALID_REQUEST, "크리덴셜 정보가 유효하지 않습니다.");
         }
         
-        if (credential.getType() == null || credential.getType().trim().isEmpty()) {
-            throw new CustomException(ErrorCode.INVALID_REQUEST, "크리덴셜 타입이 유효하지 않습니다.");
+        if (credential.getType() == null) {
+            throw new CustomException(ErrorCode.CREDENTIAL_TYPE_INVALID);
         }
     }
     

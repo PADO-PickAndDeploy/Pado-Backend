@@ -1,6 +1,7 @@
 package org.pado.api.dto.request;
 
 import io.swagger.v3.oas.annotations.media.Schema;
+import jakarta.validation.constraints.NotBlank;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -16,6 +17,7 @@ public class CredentialRegisterRequest {
     private String description;
 
     @Schema(description = "크레덴셜 타입", example = "AWS")
+    @NotBlank(message = "크리덴셜 입력은 필수입니다.")
     private String type;
 
     @Schema(description = "크레덴셜 실제 데이터(ID / Token)", example = "AKIAIOSFODNN7EXAMPLE/secret")

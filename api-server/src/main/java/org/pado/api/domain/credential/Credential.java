@@ -34,6 +34,6 @@ public class Credential extends BaseTimeEntity{
     @JoinColumn(name = "uid")
     private User user;
     private String name;
-    private String type;
+    private CredentialType type;
     private String description;
 }

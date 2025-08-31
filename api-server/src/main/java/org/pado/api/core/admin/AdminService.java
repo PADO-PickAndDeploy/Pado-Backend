@@ -22,6 +22,7 @@ import org.pado.api.domain.connection.ConnectionRepository;
 import org.pado.api.domain.connection.ConnectionType;
 import org.pado.api.domain.credential.Credential;
 import org.pado.api.domain.credential.CredentialRepository;
+import org.pado.api.domain.credential.CredentialType;
 import org.pado.api.domain.deployment.Deployment;
 import org.pado.api.domain.deployment.DeploymentRepository;
 import org.pado.api.domain.project.Project;
@@ -114,12 +115,20 @@ public class AdminService {
     public CredentialResponse createCredential(Long userId, CredentialRegisterRequest request){
         User user = userRepository.findById(userId)
         .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
+        
+        CredentialType credentialType;
+        try {
+            credentialType = CredentialType.valueOf(request.getType());
+        } catch (IllegalArgumentException e) {
+            log.error("Invalid CredentialType: {}", request.getType());
+            throw new CustomException(ErrorCode.CREDENTIAL_TYPE_INVALID);
+        }
 
         Credential credential = credentialRepository.save(
             Credential.builder()
                 .user(user)
                 .name(request.getName())
-                .type(request.getType())
+                .type(credentialType)
                 .description(request.getDescription())
                 .build()
         );

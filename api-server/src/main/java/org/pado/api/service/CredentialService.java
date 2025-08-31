@@ -10,6 +10,7 @@ import org.pado.api.core.security.userdetails.CustomUserDetails;
 import org.pado.api.core.vault.service.CredentialVaultService;
 import org.pado.api.domain.credential.Credential;
 import org.pado.api.domain.credential.CredentialRepository;
+import org.pado.api.domain.credential.CredentialType;
 import org.pado.api.domain.user.User;
 import org.pado.api.dto.request.CredentialRegisterRequest;
 import org.pado.api.dto.response.CredentialDeleteResponse;
@@ -43,10 +44,17 @@ public class CredentialService {
             throw new CustomException(ErrorCode.CREDENTIAL_NAME_DUPLICATE);
         }
 
+        CredentialType credentialType;
+        try {
+            credentialType = CredentialType.valueOf(request.getType());
+        } catch (IllegalArgumentException e) {
+            log.error("Invalid CredentialType: {}", request.getType());
+            throw new CustomException(ErrorCode.CREDENTIAL_TYPE_INVALID);
+        }
         // 크리덴셜 엔티티 생성 (vaultKey는 제거 - Vault에서 경로로 관리)
         Credential credential = Credential.builder()
                 .name(request.getName())
-                .type(request.getType())
+                .type(credentialType)
                 .description(request.getDescription())
                 .user(authenticatedUser.getUser())
                 .build();
