@@ -39,7 +39,6 @@ public class User extends BaseTimeEntity {
     private String name;
     private String email;
 
-    @JsonIgnore
     private String password;
 
     @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true)
